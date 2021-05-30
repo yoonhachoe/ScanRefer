@@ -13,12 +13,11 @@ class SelfAttention(nn.Module):
         self.scale = 1.0/math.sqrt(hidden_size)
 
     def forward(self, hidden):
-        query = hidden # B, T, H
+        #query = hidden # B, T, H
         key = hidden.permute(0, 2, 1).contiguous() # B, H, T
         value = hidden # B, T, H
         score = torch.bmm(query, key) # B, T, T
         weight = F.softmax(score.mul_(self.scale), dim=2) # scale, normalization
         attention_value = torch.bmm(weight, value) # B, T, H
         attention_value = torch.sum(attention_value, 1) # B, H
-
         return attention_value
