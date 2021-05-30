@@ -14,7 +14,7 @@ class SelfAttention(nn.Module):
 
     def forward(self, hidden):
         query = hidden # B, T, H
-        key = hidden.permute(1, 0, 2).contiguous() # B, H, T
+        key = hidden.permute(0, 2, 1).contiguous() # B, H, T
         value = hidden # B, T, H
         score = torch.bmm(query, key) # B, T, T
         weight = F.softmax(score.mul_(self.scale), dim=2) # scale, normalization
