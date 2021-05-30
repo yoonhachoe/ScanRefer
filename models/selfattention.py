@@ -13,7 +13,7 @@ class SelfAttention(nn.Module):
         self.scale = 1.0/math.sqrt(hidden_size)
 
     def forward(self, hidden):
-        #query = hidden # B, T, H
+        query = hidden # B, T, H
         key = hidden.permute(0, 2, 1).contiguous() # B, H, T
         value = hidden # B, T, H
         score = torch.bmm(query, key) # B, T, T
