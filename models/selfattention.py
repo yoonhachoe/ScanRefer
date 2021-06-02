@@ -8,7 +8,6 @@ class SelfAttention(nn.Module):
     def __init__(self, hidden_size, attention_size):
         super().__init__()
 
-        self.num_hidden = num_hidden
         self.hidden_size = hidden_size
         self.attention_size = attention_size
         self.fc1 = nn.Linear(hidden_size, attention_size)
