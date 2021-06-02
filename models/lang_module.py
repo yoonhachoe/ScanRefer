@@ -20,7 +20,6 @@ class LangModule(nn.Module):
             batch_first=True,
             bidirectional=self.use_bidir
         )
-        self.fc = nn. Linear(num_hidden, 1)
         lang_size = hidden_size * 2 if self.use_bidir else hidden_size
         self.attention = Attention(lang_size, attention_size)
         # language classifier
