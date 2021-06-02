@@ -16,7 +16,7 @@ class SelfAttention(nn.Module):
     def forward(self, feats):
         attention = self.fc1(feats) # B, T, attention_size
         attention = torch.bmm(feats.permute(0, 2, 1).contiguous(), attention) # B, H, attention_size
-        attention = torch.sofrmax(attention, dim=1)
+        attention = torch.softmax(attention, dim=1)
         #attention = torch.bmm(feats, attention) # B, T, attention_size
         attention_value = self.fc2(attention) #B, H
 
