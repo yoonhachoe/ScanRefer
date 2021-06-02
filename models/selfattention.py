@@ -1,23 +1,24 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class SelfAttention(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, attention_size):
         super().__init__()
 
+        self.num_hidden = num_hidden
         self.hidden_size = hidden_size
-        self.scale = 1.0/math.sqrt(hidden_size)
+        self.attention_size = attention_size
+        self.fc1 = nn.Linear(hidden_size, attention_size)
+        self.fc2 = nn.Linear(hidden_size, 1)
 
-    def forward(self, hidden):
-        query = hidden # B, T, H
-        key = hidden.permute(0, 2, 1).contiguous() # B, H, T
-        value = hidden # B, T, H
-        score = torch.bmm(query, key) # B, T, T
-        weight = F.softmax(score.mul_(self.scale), dim=2) # scale, normalization
-        attention_value = torch.bmm(weight, value) # B, T, H
-        attention_value = torch.sum(attention_value, 1) # B, H
+    def forward(self, feats):
+        attention = self.fc1(feats) # B, T, attention_size
+        attention = torch.bmm(feats.permute(0, 2, 1).contiguous(), attention) # B, H, attention_size
+        attention = torch.sofrmax(attention, dim=1)
+        #attention = torch.bmm(feats, attention) # B, T, attention_size
+        attention_value = self.fc2(attention) #B, H
+
         return attention_value

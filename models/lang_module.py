@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
-        emb_size=300, hidden_size=256):
+        emb_size=300, hidden_size=256, attention_size = 256):
         super().__init__() 
 
         self.num_text_classes = num_text_classes
@@ -20,8 +20,9 @@ class LangModule(nn.Module):
             batch_first=True,
             bidirectional=self.use_bidir
         )
+        self.fc = nn. Linear(num_hidden, 1)
         lang_size = hidden_size * 2 if self.use_bidir else hidden_size
-
+        self.attention = Attention(lang_size, attention_size)
         # language classifier
         if use_lang_classifier:
             self.lang_cls = nn.Sequential(
@@ -34,16 +35,18 @@ class LangModule(nn.Module):
         """
         encode the input descriptions
         """
-
         word_embs = data_dict["lang_feat"]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
     
         # encode description
-        _, lang_last = self.gru(lang_feat)
-        lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+        feats, _ = self.gru(lang_feat) #tensor containing the output features h_t from the last layer of the GRU, for each t #seq_len, batch, num_directions * hidden_size
+        feats, _ = pad_packed_sequence(feats, batch_first=True) # B, T, H
+
+        # self attention
+        lang_last = self.attention(feats)
 
         # store the encoded language features
-        data_dict["lang_emb"] = lang_last # B, hidden_size
+        data_dict["lang_emb"] = lang_last # B, H
         
         # classify
         if self.use_lang_classifier:
