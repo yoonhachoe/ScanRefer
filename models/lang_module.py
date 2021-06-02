@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from models.selfattention import Attention
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
