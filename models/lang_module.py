@@ -8,7 +8,7 @@ from models.selfattention import SelfAttention
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
-        emb_size=300, hidden_size=256, attention_size = 256):
+        emb_size=300, hidden_size=256):
         super().__init__() 
 
         self.num_text_classes = num_text_classes
@@ -22,7 +22,7 @@ class LangModule(nn.Module):
             bidirectional=self.use_bidir
         )
         lang_size = hidden_size * 2 if self.use_bidir else hidden_size
-        self.attention = SelfAttention(lang_size, attention_size)
+        self.attention = SelfAttention(lang_size)
         # language classifier
         if use_lang_classifier:
             self.lang_cls = nn.Sequential(
