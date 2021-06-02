@@ -11,7 +11,7 @@ class SelfAttention(nn.Module):
         self.hidden_size = hidden_size
         self.attention_size = attention_size
         self.fc1 = nn.Linear(hidden_size, attention_size)
-        self.fc2 = nn.Linear(hidden_size, 1)
+        self.fc2 = nn.Linear(attention_size, 1)
 
     def forward(self, feats):
         attention = self.fc1(feats) # B, T, attention_size
