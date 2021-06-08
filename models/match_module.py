@@ -10,10 +10,10 @@ class MatchModule(nn.Module):
         self.lang_size = lang_size
         self.hidden_size = hidden_size
         
-        #self.fuse = nn.Sequential(
-        #    nn.Conv1d(self.lang_size + 128, hidden_size, 1),
-        #    nn.ReLU()
-        #)
+        self.fuse = nn.Sequential(
+            nn.Conv1d(self.lang_size + 128, hidden_size, 1),
+            nn.ReLU()
+        )
         # self.match = nn.Conv1d(hidden_size, 1, 1)
 
         self.graph = DGCNN(
@@ -61,6 +61,13 @@ class MatchModule(nn.Module):
         features = features * objectness_masks # batch_size, hidden_size, num_proposals
 
         graph_output = self.graph(features) # batch_size, hidden_size, num_proposals
+
+        # fuse
+        features = torch.cat([graph_output, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
+        features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
+
+        # fuse features
+        features = self.fuse(features) # batch_size, hidden_size, num_proposals
 
         # match
         confidences = self.match(features).squeeze(1) # batch_size, num_proposals
