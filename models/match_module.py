@@ -3,7 +3,7 @@ import torch.nn as nn
 from models.dgcnn import DGCNN
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128):
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128): # change hidden_size to 256 later
         super().__init__() 
 
         self.num_proposals = num_proposals
