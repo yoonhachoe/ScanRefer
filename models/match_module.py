@@ -53,10 +53,10 @@ class MatchModule(nn.Module):
         graph_output = self.graph(features) # batch_size, hidden_size, num_proposals
 
         # dimension reduction for language features
-        lang_feat = lang_feat.permute(0, 2, 1).contiguous() # batch_size, num_proposals, lang_size
+        lang_feat = lang_feat.permute(0, 2, 1).contiguous() # batch_size, lang_size, num_proposals
         lang_feat = self.cross(lang_feat) # batch_size, hidden_size, num_proposals
 
-        # fuse features
+        # cross attention
         attention = torch.bmm(graph_output.permute(0, 2, 1).contiguous(), lang_feat) # batch_size, num_proposals, num_proposals
         attention = nn.functional.softmax(attention, dim=2)
         attention_value = torch.bmm(graph_output.permute(0, 2, 1).contiguous(), attention)  # batch_size, hidden_size, num_proposals
