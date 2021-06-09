@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-from models.dgcnn import DGCNN
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128): # change hidden_size to 256 later
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128):
         super().__init__() 
 
         self.num_proposals = num_proposals
@@ -15,13 +14,6 @@ class MatchModule(nn.Module):
             nn.ReLU()
         )
         # self.match = nn.Conv1d(hidden_size, 1, 1)
-
-        self.graph = DGCNN(
-            input_dim=128, #change later to 256
-            output_dim=128, #change later to 256
-            k=20
-        )
-
         self.match = nn.Sequential(
             nn.Conv1d(hidden_size, hidden_size, 1),
             nn.ReLU(),
@@ -48,12 +40,9 @@ class MatchModule(nn.Module):
         # unpack outputs from language branch
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
-        
-        # DGCNN
-        graph_output = self.graph(features) # batch_size, hidden_size, num_proposals
 
         # fuse
-        features = torch.cat([graph_output, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
+        features = torch.cat([features, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
         features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
 
         # fuse features
@@ -61,7 +50,7 @@ class MatchModule(nn.Module):
         
         # mask out invalid proposals
         objectness_masks = objectness_masks.permute(0, 2, 1).contiguous() # batch_size, 1, num_proposals
-        features = features * objectness_masks # batch_size, hidden_size, num_proposals
+        features = features * objectness_masks
 
         # match
         confidences = self.match(features).squeeze(1) # batch_size, num_proposals
