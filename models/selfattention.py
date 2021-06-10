@@ -7,14 +7,13 @@ class SelfAttention(nn.Module):
         super().__init__()
 
         self.hidden_size = hidden_size
-        #self.attention_size = attention_size
         self.fc1 = nn.Linear(hidden_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, 1)
 
     def forward(self, feats):
-        attention = self.fc1(feats) # B, T, H
-        attention = torch.bmm(attention, feats.permute(0, 2, 1).contiguous()) # B, T, T
-        attention = nn.functional.softmax(attention, dim=2)
-        attention_value = torch.bmm(attention, feats) # B, T, H
-        attention_value = torch.sum(attention_value, 1) # B, H
+        attention_score = self.fc1(feats) # B, T, H
+        attention_weight = nn.functional.softmax(attention_score, dim=1)
+        attention_value = torch.bmm(attention_weight.permute(0, 2, 1).contiguous(), feats) # B, H, H
+        attention_value = self.fc2(attention_value, 1) # B, H
 
         return attention_value
