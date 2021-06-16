@@ -8,12 +8,24 @@ class SelfAttention(nn.Module):
 
         self.hidden_size = hidden_size
         self.fc1 = nn.Linear(hidden_size, hidden_size)
+        self.fc2 = nn.Linear(self.num_hops, 1)
 
-    def forward(self, feats):
+    def forward(self, feats, lengths):
         attention = self.fc1(feats) # B, T, H
-        attention_score = torch.bmm(attention, feats.permute(0, 2, 1).contiguous()) # B, T, T
-        attention_weight = nn.functional.softmax(attention_score, dim=2)
-        attention_value = torch.bmm(attention_weight, feats) # B, T, H
-        attention_value = torch.sum(attention_value, 1) # B, H
+        # mask attention scores
+        B, S, _ = attention.size()  # S = len longest hiddenstate
+        idx = lengths.new_tensor(torch.arange(0, S).unsqueeze(0).repeat(B, 1)).long()  # clone lengths tensor
+        lengths = lengths.unsqueeze(1).repeat(1, S)
 
-        return attention_value
+        mask = (idx >= lengths)
+        mask = mask.unsqueeze(2).repeat(1, 1, self.num_hops)
+        attention.masked_fill_(mask, float('-1e30'))  # attn mask
+
+        # softmax
+        weights = nn.functional.softmax(attention, dim=1)  # B, T, H
+        weights = weights.transpose(1, 2)  # B, H, T
+        value = torch.bmm(weights, feats) # B, H, H
+        value = value.permute(0, 2, 1).contiguous()
+        value = self.fc2(value)  # B, H, 1
+        value = torch.squeeze(value)
+        return value
