@@ -39,7 +39,7 @@ class LangModule(nn.Module):
         """
         word_embs = data_dict["lang_feat"]
         input_lengths = data_dict["lang_len"]
-        input_lengths, sorted_idx = torch.sort(input_lengths, descending=True) # sort by length in descending order
+        _, sorted_idx = torch.sort(input_lengths, descending=True) # sort by length in descending order
         word_embs = word_embs[sorted_idx]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
 
@@ -50,7 +50,7 @@ class LangModule(nn.Module):
         feats = feats[unsorted_idx]
 
         # self attention
-        lang_last = self.attention(feats)
+        lang_last = self.attention(feats, input_lengths)
 
         # store the encoded language features
         data_dict["lang_emb"] = lang_last  # batch, hidden_size
