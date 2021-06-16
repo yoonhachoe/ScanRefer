@@ -18,7 +18,7 @@ class SelfAttention(nn.Module):
         lengths = lengths.unsqueeze(1).repeat(1, S)
 
         mask = (idx >= lengths)
-        mask = mask.unsqueeze(2).repeat(1, 1, self.num_hops)
+        mask = mask.unsqueeze(2).repeat(1, 1, hidden_size)
         attention.masked_fill_(mask, float('-1e30'))  # attn mask
 
         # softmax
