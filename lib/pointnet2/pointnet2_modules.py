@@ -32,7 +32,8 @@ class _PointnetSAModuleBase(nn.Module):
         self.mlps = None
 
     def forward(self, xyz: torch.Tensor,
-                features: torch.Tensor = None) -> (torch.Tensor, torch.Tensor):
+                features: torch.Tensor = None,
+                target_xyz: torch.Tensor = None) -> (torch.Tensor, torch.Tensor):
         r"""
         Parameters
         ----------
@@ -40,7 +41,8 @@ class _PointnetSAModuleBase(nn.Module):
             (B, N, 3) tensor of the xyz coordinates of the features
         features : torch.Tensor
             (B, N, C) tensor of the descriptors of the the features
-
+        target_xyz: torch.Tensor
+            # (B, M * K, 3) tensor of the xyz coordinates of target points
         Returns
         -------
         new_xyz : torch.Tensor
@@ -52,10 +54,14 @@ class _PointnetSAModuleBase(nn.Module):
         new_features_list = []
 
         xyz_flipped = xyz.transpose(1, 2).contiguous()
-        new_xyz = pointnet2_utils.gather_operation(
-            xyz_flipped,
-            pointnet2_utils.furthest_point_sample(xyz, self.npoint)
-        ).transpose(1, 2).contiguous() if self.npoint is not None else None
+        if target_xyz is not None:
+            new_xyz = target_xyz.contiguous()
+        else:
+            new_xyz = pointnet2_utils.gather_operation(
+                xyz_flipped,
+                pointnet2_utils.furthest_point_sample(xyz, self.npoint)
+            ).transpose(1, 2).contiguous() if self.npoint is not None else None
+
 
         for i in range(len(self.groupers)):
             new_features = self.groupers[i](
@@ -77,7 +83,6 @@ class _PointnetSAModuleBase(nn.Module):
 
 class PointnetSAModuleMSG(_PointnetSAModuleBase):
     r"""Pointnet set abstrction layer with multiscale grouping
-
     Parameters
     ----------
     npoint : int
@@ -100,7 +105,8 @@ class PointnetSAModuleMSG(_PointnetSAModuleBase):
             nsamples: List[int],
             mlps: List[List[int]],
             bn: bool = True,
-            use_xyz: bool = True, 
+            use_xyz: bool = True,
+            normalize_xyz: bool = False,
             sample_uniformly: bool = False
     ):
         super().__init__()
@@ -114,7 +120,9 @@ class PointnetSAModuleMSG(_PointnetSAModuleBase):
             radius = radii[i]
             nsample = nsamples[i]
             self.groupers.append(
-                pointnet2_utils.QueryAndGroup(radius, nsample, use_xyz=use_xyz, sample_uniformly=sample_uniformly)
+                pointnet2_utils.QueryAndGroup(radius, nsample, use_xyz=use_xyz,
+                                              normalize_xyz=normalize_xyz,
+                                              sample_uniformly=sample_uniformly)
                 if npoint is not None else pointnet2_utils.GroupAll(use_xyz)
             )
             mlp_spec = mlps[i]
@@ -126,7 +134,6 @@ class PointnetSAModuleMSG(_PointnetSAModuleBase):
 
 class PointnetSAModule(PointnetSAModuleMSG):
     r"""Pointnet set abstrction layer
-
     Parameters
     ----------
     npoint : int
@@ -149,7 +156,8 @@ class PointnetSAModule(PointnetSAModuleMSG):
             radius: float = None,
             nsample: int = None,
             bn: bool = True,
-            use_xyz: bool = True
+            use_xyz: bool = True,
+            normalize_xyz: bool = False
     ):
         super().__init__(
             mlps=[mlp],
@@ -157,7 +165,8 @@ class PointnetSAModule(PointnetSAModuleMSG):
             radii=[radius],
             nsamples=[nsample],
             bn=bn,
-            use_xyz=use_xyz
+            use_xyz=use_xyz,
+            normalize_xyz=normalize_xyz
         )
 
 
@@ -209,7 +218,8 @@ class PointnetSAModuleVotes(nn.Module):
 
     def forward(self, xyz: torch.Tensor,
                 features: torch.Tensor = None,
-                inds: torch.Tensor = None) -> (torch.Tensor, torch.Tensor):
+                inds: torch.Tensor = None,
+                target_xyz: torch.Tensor = None) -> (torch.Tensor, torch.Tensor):
         r"""
         Parameters
         ----------
@@ -219,7 +229,8 @@ class PointnetSAModuleVotes(nn.Module):
             (B, C, N) tensor of the descriptors of the the features
         inds : torch.Tensor
             (B, npoint) tensor that stores index to the xyz points (values in 0-N-1)
-
+        target_xyz: torch.Tensor
+            # (B, M * K, 3) tensor of the xyz coordinates of target points
         Returns
         -------
         new_xyz : torch.Tensor
@@ -231,13 +242,18 @@ class PointnetSAModuleVotes(nn.Module):
         """
 
         xyz_flipped = xyz.transpose(1, 2).contiguous()
-        if inds is None:
-            inds = pointnet2_utils.furthest_point_sample(xyz, self.npoint)
-        else:
+        if inds is not None:
             assert(inds.shape[1] == self.npoint)
-        new_xyz = pointnet2_utils.gather_operation(
-            xyz_flipped, inds
-        ).transpose(1, 2).contiguous() if self.npoint is not None else None
+            new_xyz = pointnet2_utils.gather_operation(
+                xyz_flipped, inds
+            ).transpose(1, 2).contiguous() if self.npoint is not None else None
+        elif target_xyz is not None:
+            new_xyz = target_xyz.contiguous()
+        else:
+            inds = pointnet2_utils.furthest_point_sample(xyz, self.npoint)
+            new_xyz = pointnet2_utils.gather_operation(
+                xyz_flipped, inds
+            ).transpose(1, 2).contiguous() if self.npoint is not None else None
 
         if not self.ret_unique_cnt:
             grouped_features, grouped_xyz = self.grouper(
@@ -317,7 +333,6 @@ class PointnetSAModuleMSGVotes(nn.Module):
             (B, C, C) tensor of the descriptors of the the features
         inds : torch.Tensor
             (B, npoint) tensor that stores index to the xyz points (values in 0-N-1)
-
         Returns
         -------
         new_xyz : torch.Tensor
@@ -355,7 +370,6 @@ class PointnetSAModuleMSGVotes(nn.Module):
 
 class PointnetFPModule(nn.Module):
     r"""Propigates the features of one set to another
-
     Parameters
     ----------
     mlp : list
@@ -383,7 +397,6 @@ class PointnetFPModule(nn.Module):
             (B, C1, n) tensor of the features to be propigated to
         known_feats : torch.Tensor
             (B, C2, m) tensor of features to be propigated
-
         Returns
         -------
         new_features : torch.Tensor
@@ -464,7 +477,6 @@ class PointnetLFPModuleMSG(nn.Module):
             (B, C2, N2) tensor of the descriptors of the the features
         features1 : torch.Tensor
             (B, C1, N1) tensor of the descriptors of the the features
-
         Returns
         -------
         new_features1 : torch.Tensor
