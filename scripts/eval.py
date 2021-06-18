@@ -18,9 +18,9 @@ sys.path.append(os.path.join(os.getcwd())) # HACK add the root folder
 from lib.config import CONF
 from lib.dataset import ScannetReferenceDataset
 from lib.solver import Solver
-from lib.ap_helper import APCalculator, parse_predictions, parse_groundtruths
-from lib.loss_helper import get_loss
-from lib.eval_helper import get_eval
+from lib.ap_helper import APCalculator, parse_predictions, parse_groundtruths, parse_predictions_brnet
+from lib.loss_helper import get_loss, loss_brnet
+from lib.eval_helper import get_eval, get_eval_brnet
 from models.refnet import RefNet
 from data.scannet.model_util_scannet import ScannetDatasetConfig
 
@@ -55,7 +55,8 @@ def get_model(args, config):
         num_proposal=args.num_proposals,
         input_feature_dim=input_channels,
         use_lang_classifier=(not args.no_lang_cls),
-        use_bidir=args.use_bidir
+        use_bidir=args.use_bidir,
+        use_brnet=args.use_brnet
     ).cuda()
 
     model_name = "model_last.pth" if args.detection else "model.pth"
@@ -149,23 +150,43 @@ def eval_ref(args):
 
                 # feed
                 data = model(data)
-                _, data = get_loss(
-                    data_dict=data, 
-                    config=DC, 
-                    detection=True,
-                    reference=True, 
-                    use_lang_classifier=not args.no_lang_cls
-                )
-                data = get_eval(
-                    data_dict=data, 
-                    config=DC,
-                    reference=True, 
-                    use_lang_classifier=not args.no_lang_cls,
-                    use_oracle=args.use_oracle,
-                    use_cat_rand=args.use_cat_rand,
-                    use_best=args.use_best,
-                    post_processing=POST_DICT
-                )
+
+                if not args.use_brnet:
+                    _, data = get_loss(
+                        data_dict=data, 
+                        config=DC, 
+                        detection=True,
+                        reference=True, 
+                        use_lang_classifier=not args.no_lang_cls
+                    )
+                    data = get_eval(
+                        data_dict=data, 
+                        config=DC,
+                        reference=True, 
+                        use_lang_classifier=not args.no_lang_cls,
+                        use_oracle=args.use_oracle,
+                        use_cat_rand=args.use_cat_rand,
+                        use_best=args.use_best,
+                        post_processing=POST_DICT
+                    )
+                else:
+                    _, data = loss_brnet(
+                        data_dict=data, 
+                        config=DC, 
+                        detection=True,
+                        reference=True, 
+                        use_lang_classifier=not args.no_lang_cls
+                    )
+                    data = get_eval_brnet(
+                        data_dict=data, 
+                        config=DC,
+                        reference=True, 
+                        use_lang_classifier=not args.no_lang_cls,
+                        use_oracle=args.use_oracle,
+                        use_cat_rand=args.use_cat_rand,
+                        use_best=args.use_best,
+                        post_processing=POST_DICT
+                        )
 
                 ref_acc += data["ref_acc"]
                 ious += data["ref_iou"]
@@ -395,23 +416,44 @@ def eval_det(args):
         # feed
         with torch.no_grad():
             data = model(data)
-            _, data = get_loss(
+
+            if not args.use_brnet:
+                _, data = get_loss(
+                    data_dict=data, 
+                    config=DC, 
+                    detection=True,
+                    reference=False
+                )
+                data = get_eval(
+                    data_dict=data, 
+                    config=DC, 
+                    reference=False,
+                    post_processing=POST_DICT
+                )
+            else:
+                _, data = loss_brnet(
                 data_dict=data, 
                 config=DC, 
                 detection=True,
                 reference=False
-            )
-            data = get_eval(
-                data_dict=data, 
-                config=DC, 
-                reference=False,
-                post_processing=POST_DICT
-            )
+                )
+                data = get_eval_brnet(
+                    data_dict=data, 
+                    config=DC, 
+                    reference=False,
+                    post_processing=POST_DICT
+                )
+
 
         sem_acc.append(data["sem_acc"].item())
 
-        batch_pred_map_cls = parse_predictions(data, POST_DICT) 
-        batch_gt_map_cls = parse_groundtruths(data, POST_DICT) 
+        if not args.use_brnet:
+            batch_pred_map_cls = parse_predictions(data, POST_DICT) 
+            batch_gt_map_cls = parse_groundtruths(data, POST_DICT)
+        else:
+            batch_pred_map_cls = parse_predictions_brnet(data, POST_DICT) 
+            batch_gt_map_cls = parse_groundtruths(data, POST_DICT)
+
         for ap_calculator in AP_CALCULATOR_LIST:
             ap_calculator.step(batch_pred_map_cls, batch_gt_map_cls)
 
@@ -441,6 +483,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_color", action="store_true", help="Use RGB color in input.")
     parser.add_argument("--use_normal", action="store_true", help="Use RGB color in input.")
     parser.add_argument("--use_multiview", action="store_true", help="Use multiview images.")
+    parser.add_argument("--use_brnet", action="store_true", help="Use BRNet for object detection.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_train", action="store_true", help="Use train split in evaluation.")
     parser.add_argument("--use_oracle", action="store_true", help="Use ground truth bounding boxes.")
@@ -457,4 +500,3 @@ if __name__ == "__main__":
     # evaluate
     if args.reference: eval_ref(args)
     if args.detection: eval_det(args)
-
