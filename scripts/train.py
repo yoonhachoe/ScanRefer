@@ -16,7 +16,7 @@ from copy import deepcopy
 sys.path.append(os.path.join(os.getcwd())) # HACK add the root folder
 from data.scannet.model_util_scannet import ScannetDatasetConfig
 from lib.dataset import ScannetReferenceDataset
-from lib.solver import Solver
+from lib.solver import Solver, BRNetSolver
 from lib.config import CONF
 from models.refnet import RefNet
 
@@ -54,6 +54,9 @@ def get_model(args):
         num_proposal=args.num_proposals,
         use_lang_classifier=(not args.no_lang_cls),
         use_bidir=args.use_bidir,
+        use_brnet=args.use_brnet,
+        use_cross_attn=args.use_cross_attn,
+        use_dgcnn=args.use_dgcnn,
         no_reference=args.no_reference
     )
 
@@ -127,21 +130,41 @@ def get_solver(args, dataloader):
     BN_DECAY_STEP = 20 if args.no_reference else None
     BN_DECAY_RATE = 0.5 if args.no_reference else None
 
-    solver = Solver(
-        model=model, 
-        config=DC, 
-        dataloader=dataloader, 
-        optimizer=optimizer, 
-        stamp=stamp, 
-        val_step=args.val_step,
-        detection=not args.no_detection,
-        reference=not args.no_reference, 
-        use_lang_classifier=not args.no_lang_cls,
-        lr_decay_step=LR_DECAY_STEP,
-        lr_decay_rate=LR_DECAY_RATE,
-        bn_decay_step=BN_DECAY_STEP,
-        bn_decay_rate=BN_DECAY_RATE
-    )
+    if args.use_brnet:
+        print("Using BRNet solver...")
+
+        solver = BRNetSolver(
+            model=model, 
+            config=DC, 
+            dataloader=dataloader, 
+            optimizer=optimizer, 
+            stamp=stamp, 
+            val_step=args.val_step,
+            detection=not args.no_detection,
+            reference=not args.no_reference, 
+            use_lang_classifier=not args.no_lang_cls,
+            lr_decay_step=LR_DECAY_STEP,
+            lr_decay_rate=LR_DECAY_RATE,
+            bn_decay_step=BN_DECAY_STEP,
+            bn_decay_rate=BN_DECAY_RATE
+        )
+    else:
+        solver = Solver(
+            model=model, 
+            config=DC, 
+            dataloader=dataloader, 
+            optimizer=optimizer, 
+            stamp=stamp, 
+            val_step=args.val_step,
+            detection=not args.no_detection,
+            reference=not args.no_reference, 
+            use_lang_classifier=not args.no_lang_cls,
+            lr_decay_step=LR_DECAY_STEP,
+            lr_decay_rate=LR_DECAY_RATE,
+            bn_decay_step=BN_DECAY_STEP,
+            bn_decay_rate=BN_DECAY_RATE
+        )
+
     num_params = get_num_params(model)
 
     return solver, num_params, root
@@ -253,6 +276,9 @@ if __name__ == "__main__":
     parser.add_argument("--use_color", action="store_true", help="Use RGB color in input.")
     parser.add_argument("--use_normal", action="store_true", help="Use RGB color in input.")
     parser.add_argument("--use_multiview", action="store_true", help="Use multiview images.")
+    parser.add_argument("--use_brnet", action="store_true", help="Use BRNet for object detection.")
+    parser.add_argument("--use_cross_attn", action="store_true", help="Use cross attention with visual and lang features")
+    parser.add_argument("--use_dgcnn", action="store_true", help="Use DGCNN for visual features.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
@@ -269,4 +295,3 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     train(args)
-    
