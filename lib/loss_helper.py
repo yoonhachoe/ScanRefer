@@ -15,6 +15,7 @@ from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, box3d_iou_batch
 
+
 FAR_THRESHOLD = 0.6
 NEAR_THRESHOLD = 0.3
 GT_VOTE_FACTOR = 3 # number of GT votes per point
@@ -22,7 +23,6 @@ OBJECTNESS_CLS_WEIGHTS = [0.2, 0.8] # put larger weights on positive objectness
 
 def compute_vote_loss(data_dict):
     """ Compute vote loss: Match predicted votes to GT votes.
-
     Args:
         data_dict: dict (read-only)
     
@@ -32,11 +32,9 @@ def compute_vote_loss(data_dict):
     Overall idea:
         If the seed point belongs to an object (votes_label_mask == 1),
         then we require it to vote for the object center.
-
         Each seed point may vote for multiple translations v1,v2,v3
         A seed point may also be in the boxes of multiple objects:
         o1,o2,o3 with corresponding GT votes c1,c2,c3
-
         Then the loss for this seed point is:
             min(d(v_i,c_j)) for i=1,2,3 and j=1,2,3
     """
@@ -52,7 +50,7 @@ def compute_vote_loss(data_dict):
     #   non-object point has no GT vote mask = 0, object point has mask = 1
     # vote_label: Use gather to select B,num_seed,9 from B,num_point,9
     #   with inds in shape B,num_seed,9 and 9 = GT_VOTE_FACTOR * 3
-    seed_gt_votes_mask = torch.gather(data_dict['vote_label_mask'], 1, seed_inds)
+    seed_gt_votes_mask = torch.gather(data_dict['vote_label_mask'], 1, seed_inds) 
     seed_inds_expand = seed_inds.view(batch_size,num_seed,1).repeat(1,1,3*GT_VOTE_FACTOR)
     seed_gt_votes = torch.gather(data_dict['vote_label'], 1, seed_inds_expand)
     seed_gt_votes += data_dict['seed_xyz'].repeat(1,1,3)
@@ -69,10 +67,8 @@ def compute_vote_loss(data_dict):
 
 def compute_objectness_loss(data_dict):
     """ Compute objectness loss for the proposals.
-
     Args:
         data_dict: dict (read-only)
-
     Returns:
         objectness_loss: scalar Tensor
         objectness_label: (batch_size, num_seed) Tensor with value 0 or 1
@@ -111,10 +107,8 @@ def compute_objectness_loss(data_dict):
 
 def compute_box_and_sem_cls_loss(data_dict, config):
     """ Compute 3D bounding box and semantic classification loss.
-
     Args:
         data_dict: dict (read-only)
-
     Returns:
         center_loss
         heading_cls_loss
@@ -185,12 +179,10 @@ def compute_box_and_sem_cls_loss(data_dict, config):
 
     return center_loss, heading_class_loss, heading_residual_normalized_loss, size_class_loss, size_residual_normalized_loss, sem_cls_loss
 
-def compute_reference_loss(data_dict, config):
+def compute_reference_loss(data_dict, config, use_brnet=False):
     """ Compute cluster reference loss
-
     Args:
         data_dict: dict (read-only)
-
     Returns:
         ref_loss, lang_loss, cluster_preds, cluster_labels
     """
@@ -199,16 +191,19 @@ def compute_reference_loss(data_dict, config):
     cluster_preds = data_dict["cluster_ref"] # (B, num_proposal)
 
     # predicted bbox
+
     pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
-    pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
-    pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
-    pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-    pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_class = pred_size_class.detach().cpu().numpy()
-    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+
+    if not use_brnet:
+        pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
+        pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
+        pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+        pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+        pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+        pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
+        pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+        pred_size_class = pred_size_class.detach().cpu().numpy()
+        pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
     # ground truth bbox
     gt_center = data_dict['ref_center_label'].cpu().numpy() # (B,3)
@@ -226,8 +221,13 @@ def compute_reference_loss(data_dict, config):
     labels = np.zeros((batch_size, num_proposals))
     for i in range(pred_ref.shape[0]):
         # convert the bbox parameters to bbox corners
-        pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
+        if not use_brnet:
+            pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
                     pred_size_class[i], pred_size_residual[i])
+        else:
+            pred_obb_batch = config.dist2obb_batch(data_dict['refined_distance'][i, :, 0:6],
+                                                   data_dict['aggregated_vote_xyz'][i, :, 0:3])
+
         pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
         ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
         labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
@@ -248,7 +248,6 @@ def compute_lang_classification_loss(data_dict):
 
 def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False):
     """ Loss functions
-
     Args:
         data_dict: dict
         config: dataset config instance
@@ -319,6 +318,211 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     # Final loss function
     loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] \
         + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
+    
+    loss *= 10 # amplify
+
+    data_dict['loss'] = loss
+
+    return loss, data_dict
+
+
+def compute_sem_cls_loss(data_dict):
+    object_assignment = data_dict['object_assignment']
+    objectness_label = data_dict['objectness_label'].float()
+
+    sem_cls_label = torch.gather(data_dict['sem_cls_label'], 1, object_assignment) # select (B,K) from (B,K2)
+    criterion_sem_cls = nn.CrossEntropyLoss(reduction='none')
+    sem_cls_loss = criterion_sem_cls(data_dict['sem_cls_scores'].transpose(2,1), sem_cls_label) # (B,K)
+    sem_cls_loss = torch.sum(sem_cls_loss * objectness_label)/(torch.sum(objectness_label)+1e-6)
+
+    return sem_cls_loss
+
+
+def compute_rep_loss(data_dict, config):
+    # Compute rep angle
+
+    num_heading_bin = config.num_heading_bin
+
+    object_assignment = data_dict['object_assignment']
+    objectness_label = data_dict['objectness_label']
+
+    box_loss_weights = objectness_label.float() / (torch.sum(objectness_label).float() + 1e-6)
+    batch_size = object_assignment.shape[0]
+
+    # Compute heading class loss (Cross-entropy, reduction:sum, loss_weight=0.1)
+    
+    heading_class_label = torch.gather(data_dict['heading_class_label'], 1, object_assignment) # select (B,K) from (B,K2)
+    criterion_heading_class = nn.CrossEntropyLoss(reduction='none')
+    heading_class_loss = criterion_heading_class(data_dict['heading_scores'].transpose(2,1), heading_class_label) # (B,K)
+    heading_class_loss = torch.sum(heading_class_loss * objectness_label)/(torch.sum(objectness_label)+1e-6)
+
+    # Compute Residual loss (smoothl1, reduction:sum, loss_weight=1.0, beta=1.0)
+    
+    heading_residual_label = torch.gather(data_dict['heading_residual_label'], 1, object_assignment) # select (B,K) from (B,K2)
+    heading_residual_normalized_label = heading_residual_label / (np.pi/num_heading_bin)
+
+    # Ref: https://discuss.pytorch.org/t/convert-int-into-one-hot-format/507/3
+    heading_label_one_hot = torch.cuda.FloatTensor(batch_size, heading_class_label.shape[1], num_heading_bin).zero_()
+    heading_label_one_hot.scatter_(2, heading_class_label.unsqueeze(-1), 1) # src==1 so it's *one-hot* (B,K,num_heading_bin)
+    heading_residual_normalized_loss = huber_loss(torch.sum(data_dict['heading_residuals_normalized']*heading_label_one_hot, -1) - heading_residual_normalized_label, delta=1.0) # (B,K)
+    heading_residual_normalized_loss = torch.sum(heading_residual_normalized_loss*objectness_label)/(torch.sum(objectness_label)+1e-6)
+
+    dir_rep_loss = heading_residual_normalized_loss + 0.1 * heading_class_loss
+
+    # Compute rep distance (smoothl1, reduction:sum, loss_weight=1.0, beta=0.15)
+
+    pred_distance = data_dict["distance"]
+    distance_targets = data_dict['distance_targets']
+
+    dist1 = huber_loss(pred_distance - distance_targets, delta=0.15)
+    size_rep_loss = torch.sum(dist1 * box_loss_weights.unsqueeze(-1).repeat(1, 1, 6))
+
+    rep_loss = size_rep_loss + dir_rep_loss
+
+    return rep_loss
+
+
+def get_distance_targets(data_dict, config):
+    object_assignment = data_dict['object_assignment']
+
+    gt_size_class = data_dict['size_class_label']
+    gt_size_residual = data_dict['size_residual_label']
+
+    size_res_targets = torch.from_numpy(
+        config.class2size_batch(gt_size_class.int().detach().cpu().numpy(),
+                                gt_size_residual.detach().cpu().numpy())).cuda()
+    size_res_targets = torch.gather(size_res_targets, 1, object_assignment.unsqueeze(-1).repeat(1,1,3))
+    size_res_targets /= 2
+
+    center_targets = torch.gather(data_dict['center_label'], 1, object_assignment.unsqueeze(-1).repeat(1,1,3))
+    aggregated_points = data_dict['aggregated_vote_xyz']
+    
+    canonical_xyz = aggregated_points - center_targets
+    
+    distance_front  = size_res_targets[:, :, 0] - canonical_xyz[:, :,  0]
+    distance_left   = size_res_targets[:, :, 1] - canonical_xyz[:, :,  1]
+    distance_top    = size_res_targets[:, :, 2] - canonical_xyz[:, :,  2]
+    distance_back   = size_res_targets[:, :, 0] + canonical_xyz[:, :,  0]
+    distance_right  = size_res_targets[:, :, 1] + canonical_xyz[:, :,  1]
+    distance_bottom = size_res_targets[:, :, 2] + canonical_xyz[:, :,  2]
+
+    distance_targets = torch.cat(
+        (distance_front.unsqueeze(-1),
+         distance_left.unsqueeze(-1),
+         distance_top.unsqueeze(-1),
+         distance_back.unsqueeze(-1),
+         distance_right.unsqueeze(-1),
+         distance_bottom.unsqueeze(-1)),
+        dim=-1
+    )
+    distance_targets.clamp_(min=0)
+
+    return distance_targets
+
+
+def compute_refine_loss(data_dict, config):
+    # Compute refined angle loss
+
+    objectness_label = data_dict['objectness_label']
+    box_loss_weights = objectness_label.float() / (torch.sum(objectness_label).float() + 1e-6)
+    
+    num_heading_bin = config.num_heading_bin
+
+    heading_angle = data_dict['refined_angle']
+    batch_size, num_proposal = heading_angle.shape
+
+    dir_targets = torch.cuda.FloatTensor(batch_size, num_proposal).zero_()
+    heading_delta = heading_angle - dir_targets
+
+    heading_loss = huber_loss(heading_delta, delta=np.pi/num_heading_bin)  # (B, N)
+
+    dir_refine_loss = torch.sum(heading_loss * box_loss_weights)
+
+    # Compute refined distance loss
+
+    refined_distance = data_dict['refined_distance']
+    distance_targets = data_dict['distance_targets']
+
+    dist1 = huber_loss(refined_distance - distance_targets, delta=0.15)
+    size_refine_loss = torch.sum(dist1 * box_loss_weights.unsqueeze(-1).repeat(1, 1, 6))
+
+    refine_loss = dir_refine_loss + size_refine_loss
+
+    return refine_loss
+
+
+def loss_brnet(data_dict, config, detection=True, reference=True, use_lang_classifier=False):
+    """ Loss functions
+    Args:
+        data_dict: dict
+        config: dataset config instance
+        reference: flag (False/True)
+    Returns:
+        loss: pytorch scalar tensor
+        data_dict: dict
+    """
+
+    # Vote loss
+    vote_loss = compute_vote_loss(data_dict)
+
+    # Obj loss
+    objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    num_proposal = objectness_label.shape[1]
+    total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    data_dict['objectness_label'] = objectness_label
+    data_dict['objectness_mask'] = objectness_mask
+    data_dict['object_assignment'] = object_assignment
+    data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+    data_dict['distance_targets'] = get_distance_targets(data_dict, config)
+
+    # Sem_cls_loss
+    sem_cls_loss = compute_sem_cls_loss(data_dict)
+
+    # Representative point loss
+
+    rep_loss = compute_rep_loss(data_dict, config)
+
+    # Refine loss:
+    refine_loss = compute_refine_loss(data_dict, config)
+
+    if detection:
+        data_dict['vote_loss'] = vote_loss
+        data_dict['objectness_loss'] = objectness_loss
+        data_dict['sem_cls_loss'] = sem_cls_loss
+        data_dict['rep_loss'] = rep_loss
+        data_dict['refine_loss'] = refine_loss
+    else:
+        data_dict['vote_loss'] = torch.zeros(1)[0].cuda()
+        data_dict['objectness_loss'] = torch.zeros(1)[0].cuda()
+        data_dict['sem_cls_loss'] = torch.zeros(1)[0].cuda()
+        data_dict['rep_loss'] = torch.zeros(1)[0].cuda()
+        data_dict['refine_loss'] = torch.zeros(1)[0].cuda()
+
+    if reference:
+        # Reference loss
+        ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config, use_brnet=True)
+        data_dict["cluster_labels"] = cluster_labels
+        data_dict["ref_loss"] = ref_loss
+    else:
+        # # Reference loss
+        # ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
+        # data_dict["cluster_labels"] = cluster_labels
+        data_dict["cluster_labels"] = objectness_label.new_zeros(objectness_label.shape).cuda()
+        data_dict["cluster_ref"] = objectness_label.new_zeros(objectness_label.shape).float().cuda()
+
+        # store
+        data_dict["ref_loss"] = torch.zeros(1)[0].cuda()
+
+    if reference and use_lang_classifier:
+        data_dict["lang_loss"] = compute_lang_classification_loss(data_dict)
+    else:
+        data_dict["lang_loss"] = torch.zeros(1)[0].cuda()
+
+    # Final loss function
+    loss = data_dict['vote_loss'] + 0.5 * data_dict['objectness_loss'] + 0.1 * data_dict['sem_cls_loss'] \
+        + 0.1 * data_dict["ref_loss"] + 0.1 * data_dict["lang_loss"] + data_dict['refine_loss'] \
+        + data_dict["rep_loss"]
     
     loss *= 10 # amplify
 
