@@ -1,7 +1,6 @@
 """ 
 Utility functions for processing point clouds.
 From: https://github.com/facebookresearch/votenet/blob/master/utils/pc_util.py
-
 Author: Charles R. Qi and Or Litany
 """
 
@@ -19,6 +18,7 @@ except:
     print("pip install plyfile")
     sys.exit(-1)
 
+import torch
 
 # Mesh IO
 import trimesh
@@ -363,7 +363,6 @@ def write_bbox(scene_bbox, out_filename):
     Args:
         scene_bbox: (N x 6 numpy array): xyz pos of center and 3 lengths
         out_filename: (string) filename
-
     Note:
         To visualize the boxes in MeshLab.
         1. Select the objects (the boxes)
@@ -534,4 +533,42 @@ if __name__ == '__main__':
     
     print('tests PASSED')
     
-    
+
+def rotation_3d_in_axis(points, angles, axis=0):
+    """Rotate points by angles according to axis.
+    Args:
+        points (torch.Tensor): Points of shape (N, M, 3).
+        angles (torch.Tensor): Vector of angles in shape (N,)
+        axis (int, optional): The axis to be rotated. Defaults to 0.
+    Raises:
+        ValueError: when the axis is not in range [0, 1, 2], it will \
+            raise value error.
+    Returns:
+        torch.Tensor: Rotated points in shape (N, M, 3)
+    """
+    rot_sin = torch.sin(angles)
+    rot_cos = torch.cos(angles)
+    ones = torch.ones_like(rot_cos)
+    zeros = torch.zeros_like(rot_cos)
+    if axis == 1:
+        rot_mat_T = torch.stack([
+            torch.stack([rot_cos, zeros, -rot_sin]),
+            torch.stack([zeros, ones, zeros]),
+            torch.stack([rot_sin, zeros, rot_cos])
+        ])
+    elif axis == 2 or axis == -1:
+        rot_mat_T = torch.stack([
+            torch.stack([rot_cos, -rot_sin, zeros]),
+            torch.stack([rot_sin, rot_cos, zeros]),
+            torch.stack([zeros, zeros, ones])
+        ])
+    elif axis == 0:
+        rot_mat_T = torch.stack([
+            torch.stack([zeros, rot_cos, -rot_sin]),
+            torch.stack([zeros, rot_sin, rot_cos]),
+            torch.stack([ones, zeros, zeros])
+        ])
+    else:
+        raise ValueError(f'axis should in range [0, 1, 2], got {axis}')
+
+    return torch.einsum('aij,jka->aik', (points, rot_mat_T))
