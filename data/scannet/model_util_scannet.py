@@ -2,13 +2,14 @@
 Modified from: https://github.com/facebookresearch/votenet/blob/master/scannet/model_util_scannet.py
 """
 
+import torch
 import numpy as np
 import sys
 import os
 
 sys.path.append(os.path.join(os.getcwd(), os.pardir, "lib")) # HACK add the lib folder
 from lib.config import CONF
-from utils.box_util import get_3d_box
+from utils.pc_utils import rotation_3d_in_axis
 
 def in_hull(p, hull):
     from scipy.spatial import Delaunay
@@ -122,7 +123,6 @@ class ScannetDatasetConfig(object):
             angle is from 0-2pi (or -pi~pi), class center at 0, 1*(2pi/N), 2*(2pi/N) ...  (N-1)*(2pi/N)
             return is class of int32 of 0,1,...,N-1 and a number such that
                 class*(2pi/N) + number = angle
-
             NOT USED.
         '''
         assert(False)
@@ -169,4 +169,63 @@ class ScannetDatasetConfig(object):
         obb[:, 0:3] = center
         obb[:, 3:6] = box_size
         obb[:, 6] = heading_angle*-1
+        return obb
+
+    def dist2obb(self, distance, ref_points):
+        dir_angle = distance.new_zeros(1)
+
+        # decode bbox size
+
+        bbox_size = distance[0:3] + distance[3:6]
+        bbox_size = torch.clamp(bbox_size, min=0.1)
+
+        # decode bbox center
+        canonical_xyz = (distance[3:6] - distance[0:3]) / 2
+
+        shape = canonical_xyz.shape
+        
+        canonical_xyz = rotation_3d_in_axis(
+            canonical_xyz.view(-1, 3).unsqueeze(1),
+            dir_angle.view(-1),
+            axis=2
+        ).squeeze(1).view(shape)
+
+        center = ref_points - canonical_xyz # (B, N, 3)
+
+        obb = np.zeros((7,))
+
+        obb[0:3] = center.detach().cpu().numpy()
+        obb[3:6] = bbox_size.detach().cpu().numpy()
+        obb[6] = (dir_angle*-1).detach().cpu().numpy()
+
+        return obb
+
+    def dist2obb_batch(self, distance, ref_points):
+        num_proposal, _ = distance.shape # (B, N, 6)
+        dir_angle = distance.new_zeros(num_proposal)
+
+        # decode bbox size
+
+        bbox_size = distance[..., 0:3] + distance[..., 3:6]
+        bbox_size = torch.clamp(bbox_size, min=0.1)
+
+        # decode bbox center
+        canonical_xyz = (distance[..., 3:6] -
+                         distance[..., 0:3]) / 2  # (batch_size, num_proposal, 3)
+
+        shape = canonical_xyz.shape
+        
+        canonical_xyz = rotation_3d_in_axis(
+            canonical_xyz.view(-1, 3).unsqueeze(1),
+            dir_angle.view(-1),
+            axis=2
+        ).squeeze(1).view(shape)
+
+        center = ref_points - canonical_xyz # (B, N, 3)
+
+        obb = np.zeros((center.shape[0], 7))
+        obb[:, 0:3] = center.detach().cpu().numpy()
+        obb[:, 3:6] = bbox_size.detach().cpu().numpy()
+        obb[:, 6] = (dir_angle * -1).detach().cpu().numpy()
+
         return obb
