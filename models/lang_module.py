@@ -24,7 +24,7 @@ class LangModule(nn.Module):
             bidirectional=self.use_bidir
         )
         lang_size = hidden_size * 2 if self.use_bidir else hidden_size
-        if use_self_attn:
+        if self.use_self_attn:
             self.attention = SelfAttention(lang_size)
             self.fc_key = nn.Sequential(
                 nn.Linear(lang_size, lang_size)
@@ -47,7 +47,7 @@ class LangModule(nn.Module):
         word_embs = word_embs[sorted_idx]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
 
-        if use_self_attn:
+        if self.use_self_attn:
             # encode description
             feats, _ = self.gru(lang_feat)
             feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
