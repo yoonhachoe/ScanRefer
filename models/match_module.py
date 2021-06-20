@@ -4,7 +4,7 @@ from models.dgcnn import DGCNN
 
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_cross_attn=False, use_dgcnn=False): # change hidden_size to 256 later
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_cross_attn=False, use_dgcnn=False):
         super().__init__() 
 
         self.num_proposals = num_proposals
@@ -26,8 +26,8 @@ class MatchModule(nn.Module):
 
         if self.use_dgcnn:
             self.graph = DGCNN(
-                input_dim=128, #change later to 256
-                output_dim=128, #change later to 256
+                input_dim=128,
+                output_dim=128,
                 k=20
             )
 
@@ -71,7 +71,7 @@ class MatchModule(nn.Module):
             # cross attention
             attention = torch.bmm(features.permute(0, 2, 1).contiguous(), lang_feat) # batch_size, num_proposals, num_proposals
             attention = nn.functional.softmax(attention, dim=2)
-            attention_value = torch.bmm(graph_output.permute(0, 2, 1).contiguous(), attention)  # batch_size, hidden_size, num_proposals
+            attention_value = torch.bmm(features.permute(0, 2, 1).contiguous(), attention)  # batch_size, hidden_size, num_proposals
 
             # mask out invalid proposals
             objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
