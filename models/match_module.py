@@ -26,7 +26,7 @@ class MatchModule(nn.Module):
             self.graph = DGCNN(
                 input_dim=128,
                 output_dim=128,
-                k=20
+                k=10
             )
 
         self.match = nn.Sequential(
