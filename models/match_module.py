@@ -15,7 +15,7 @@ class MatchModule(nn.Module):
 
         if self.use_cross_attn:
             self.fc1 = nn.Linear(self.lang_size, hidden_size)
-            self.fc2 = nn.Linear(self.lang_size, 1)
+            self.fc2 = nn.Linear(self.hidden_size, 1)
         else:
             self.fuse = nn.Sequential(
                 nn.Conv1d(self.lang_size + 128, hidden_size, 1),
