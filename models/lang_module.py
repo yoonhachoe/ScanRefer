@@ -8,8 +8,8 @@ from models.selfattention import SelfAttention
 
 
 class LangModule(nn.Module):
-    def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, use_self_attn=False,
-                 emb_size=300, hidden_size=256):
+    def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False,
+                 emb_size=300, hidden_size=256, use_self_attn=False):
         super().__init__()
 
         self.num_text_classes = num_text_classes
