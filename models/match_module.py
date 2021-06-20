@@ -14,10 +14,8 @@ class MatchModule(nn.Module):
         self.use_cross_attn = use_cross_attn
 
         if self.use_cross_attn:
-            self.cross = nn.Sequential(
-                nn.Conv1d(self.lang_size, hidden_size, 1),
-                nn.ReLU()
-            )
+            self.fc1 = nn.Linear(self.lang_size, hidden_size)
+            self.fc2 = nn.Linear(self.lang_size, 1)
         else:
             self.fuse = nn.Sequential(
                 nn.Conv1d(self.lang_size + 128, hidden_size, 1),
@@ -28,7 +26,7 @@ class MatchModule(nn.Module):
             self.graph = DGCNN(
                 input_dim=128,
                 output_dim=128,
-                k=10
+                k=20
             )
 
         self.match = nn.Sequential(
@@ -58,14 +56,13 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
-        if not self.use_cross_attn:
+        if self.use_cross_attn:
+            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
+        else:
             features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
             features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
-
             # fuse features
             features = self.fuse(features)  # batch_size, hidden_size, num_proposals
-        else:
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
 
         # mask out invalid proposals
         objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
@@ -75,18 +72,15 @@ class MatchModule(nn.Module):
         if self.use_dgcnn:
             features = self.graph(features) # batch_size, hidden_size, num_proposals
 
-        # dimension reduction for language features
         if self.use_cross_attn:
-            lang_feat = lang_feat.permute(0, 2, 1).contiguous() # batch_size, lang_size, num_proposals
-            lang_feat = self.cross(lang_feat) # batch_size, hidden_size, num_proposals
-
+            lang_feat = self.fc1(lang_feat) # batch_size, num_proposals, hidden_size
             # cross attention
-            attention = torch.bmm(features.permute(0, 2, 1).contiguous(), lang_feat) # batch_size, num_proposals, num_proposals
-            attention = nn.functional.softmax(attention, dim=2)
-            attention_value = torch.bmm(features, attention)  # batch_size, hidden_size, num_proposals
-
+            score = torch.bmm(lang_feat, features) # batch_size, num_proposals, num_proposals
+            weight = nn.functional.softmax(score, dim=-1)
+            value = torch.bmm(weight, features.permute(0, 2, 1).contiguous())  # batch_size, num_proposals, hidden_size
+            confidences = torch.fc2(value).squeeze(1) # batch_size, num_proposals
             # match
-            confidences = self.match(attention_value).squeeze(1) # batch_size, num_proposals
+            #confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
