@@ -18,7 +18,7 @@ class RefNet(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
                  use_lang_classifier=True, use_bidir=False, use_brnet=False,
-                 use_cross_attn=False, use_dgcnn=False, no_reference=False,
+                 use_self_attn=False, use_cross_attn=False, use_dgcnn=False, no_reference=False,
                  emb_size=300, hidden_size=256):
         super().__init__()
 
@@ -34,6 +34,7 @@ class RefNet(nn.Module):
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir
         self.use_brnet = use_brnet
+        self.use_self_attn = use_self_attn
         self.use_cross_attn = use_cross_attn
         self.use_dgcnn = use_dgcnn
         self.no_reference = no_reference
@@ -60,7 +61,7 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
+            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, use_self_attn=use_self_attn, emb_size, hidden_size)
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
