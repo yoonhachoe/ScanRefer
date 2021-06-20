@@ -55,7 +55,7 @@ def get_model(args):
         use_lang_classifier=(not args.no_lang_cls),
         use_bidir=args.use_bidir,
         use_brnet=args.use_brnet,
-        use_self_attn=args.use_self_atten,
+        use_self_attn=args.use_self_attn,
         use_cross_attn=args.use_cross_attn,
         use_dgcnn=args.use_dgcnn,
         no_reference=args.no_reference
