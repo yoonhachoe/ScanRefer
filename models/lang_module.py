@@ -26,9 +26,6 @@ class LangModule(nn.Module):
         lang_size = hidden_size * 2 if self.use_bidir else hidden_size
         if self.use_self_attn:
             self.attention = SelfAttention(lang_size)
-            self.fc_key = nn.Sequential(
-                nn.Linear(lang_size, lang_size)
-            )
 
         # language classifier
         if use_lang_classifier:
@@ -53,9 +50,11 @@ class LangModule(nn.Module):
             feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
             _, unsorted_idx = sorted_idx.sort() # unsort in original order
             feats = feats[unsorted_idx]
-            _, num_timestep, _ = feats.size()
+            _, T, _ = feats.size()
             # self attention
-            lang_last = self.attention(feats, T) # batch, hidden_size
+            lang_last = self.attention(feats) # batch, timestep, hidden_size
+            lang_last = lang_last.sum(1, keepdim=True)/T # batch, 1, hidden_size
+            lang_last = lang_last.squeeze(1) # batch, hidden_size
         else:
             _, lang_last = self.gru(lang_feat)
             lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1)  # batch_size, hidden_size * num_dir
