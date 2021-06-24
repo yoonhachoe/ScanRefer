@@ -26,7 +26,7 @@ class MatchModule(nn.Module):
             self.graph = DGCNN(
                 input_dim=self.lang_size + 128 + self.use_brnet*128,
                 output_dim=128,
-                k=10
+                k=6
             )
 
             self.skip = nn.Sequential(
@@ -65,8 +65,8 @@ class MatchModule(nn.Module):
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
         # fuse
-        features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 256(128) + lang_size
-        features = features.permute(0, 2, 1).contiguous()  # batch_size, 256(128) + lang_size, num_proposals
+        #features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 256(128) + lang_size
+        #features = features.permute(0, 2, 1).contiguous()  # batch_size, 256(128) + lang_size, num_proposals
 
         if not self.use_dgcnn:
             # fuse features
