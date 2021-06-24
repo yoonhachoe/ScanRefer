@@ -79,7 +79,8 @@ class MatchModule(nn.Module):
             features = features * objectness_masks
 
         if self.use_cross_attn:
-            lang_feat = data_dict["attn_value"].permute(0, 2, 1).contiguous() # batch_size, timestep, lang_size
+            lang_feat = data_dict["attn_value"]
+            lang_feat = lang_feat.permute(0, 2, 1).contiguous() # batch_size, timestep, lang_size
             lang_feat = self.cross1(lang_feat) # batch_size, timestep, hidden_size
             features = self.cross2(features.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, hidden_size
             score = torch.bmm(features, lang_feat.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, timestep
