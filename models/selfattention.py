@@ -17,5 +17,6 @@ class SelfAttention(nn.Module):
         #score = score.masked_fill(mask==0, -1e9)
         weight = nn.functional.softmax(score, dim=2) # B, T, T
         value = torch.bmm(weight, feats) # B, T, H
-        value = torch.sum(value, 1) # B, H
+        value = torch.max(value, 1) # B, H
+        #value = torch.sum(value, 1) # B, H
         return value
