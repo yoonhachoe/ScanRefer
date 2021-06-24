@@ -211,6 +211,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         data_dict["point_clouds"] = point_cloud.astype(np.float32) # point cloud data including features
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
+        data_dict["attn_value"] = np.zeros((CONF.TRAIN.MAX_DES_LEN,CONF.TRAIN.MAX_DES_LEN))
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description
         data_dict["center_label"] = target_bboxes.astype(np.float32)[:,0:3] # (MAX_NUM_OBJ, 3) for GT box center XYZ
         data_dict["heading_class_label"] = angle_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
