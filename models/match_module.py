@@ -74,9 +74,19 @@ class MatchModule(nn.Module):
             skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
             features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
         else:
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-            features = features * objectness_masks
+            if not self.use_cross_attn:
+                # fuse
+                features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
+                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
+                # fuse features
+                features = self.fuse(features)  # batch_size, hidden_size, num_proposals
+                # mask out invalid proposals
+                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+                features = features * objectness_masks
+            else:
+                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
+                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+                features = features * objectness_masks
 
         if self.use_cross_attn:
             lang_feat = data_dict["attn_value"]
