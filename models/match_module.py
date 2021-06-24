@@ -14,8 +14,8 @@ class MatchModule(nn.Module):
         self.use_dgcnn = use_dgcnn
         self.use_cross_attn = use_cross_attn
 
-        self.fc1 = nn.Linear(self.lang_size, hidden_size)
-        self.fc2 = nn.Linear(self.hidden_size, 1)
+        self.cross1 = nn.Linear(self.lang_size, hidden_size)
+        self.cross2 = nn.Linear(self.hidden_size, 1)
 
         self.fuse = nn.Sequential(
             nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
@@ -27,6 +27,10 @@ class MatchModule(nn.Module):
                 input_dim=self.lang_size + 128 + self.use_brnet*128,
                 output_dim=128,
                 k=10
+            )
+
+            self.skip = nn.Sequential(
+                nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
             )
 
         self.match = nn.Sequential(
@@ -74,15 +78,16 @@ class MatchModule(nn.Module):
 
         # DGCNN
         if self.use_dgcnn:
-            features = self.graph(features) # batch_size, hidden_size, num_proposals
+            skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+            features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
 
         if self.use_cross_attn:
-            lang_feat = self.fc1(lang_feat) # batch_size, num_proposals, hidden_size
+            lang_feat = self.cross1(lang_feat) # batch_size, num_proposals, hidden_size
             # cross attention
             score = torch.bmm(lang_feat, features) # batch_size, num_proposals, num_proposals
-            weight = nn.functional.softmax(score, dim=-1)
+            weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, features.permute(0, 2, 1).contiguous())  # batch_size, num_proposals, hidden_size
-            confidences = self.fc2(value).squeeze(2) # batch_size, num_proposals
+            confidences = self.cross2(value).squeeze(2) # batch_size, num_proposals
             # match
             #confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
