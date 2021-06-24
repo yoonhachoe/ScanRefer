@@ -31,7 +31,8 @@ class MatchModule(nn.Module):
             )
 
             self.skip = nn.Sequential(
-                nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
+                #nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
+                nn.Conv1d(self.lang_size + 128 + self.use_brnet * 128, hidden_size, 1),
             )
 
         self.match = nn.Sequential(
