@@ -51,7 +51,12 @@ class LangModule(nn.Module):
             _, unsorted_idx = sorted_idx.sort() # unsort in original order
             feats = feats[unsorted_idx]
             # self attention
-            lang_last = self.attention(feats) # batch, timestep, hidden_size
+            attn_weight = self.attention(feats) # batch, timestep, timestep
+            attn_value = torch.bmm(attn_weight, feats)  # B, T, H
+            lang_last = torch.max(attn_value, 1) # B, H
+            data_dict["attn_weight"] = attn_weight
+            data_dict["attn_value"] = attn_value
+
         else:
             lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
             _, lang_last = self.gru(lang_feat)
