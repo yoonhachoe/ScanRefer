@@ -1,97 +1,72 @@
+import os
+import sys
 import torch
 import torch.nn as nn
-from models.dgcnn import DGCNN
+
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from models.selfattention import SelfAttention
 
 
-class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_brnet=False, use_cross_attn=False, use_dgcnn=False):
-        super().__init__() 
+class LangModule(nn.Module):
+    def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False,
+                 emb_size=300, hidden_size=256, use_self_attn=False):
+        super().__init__()
 
-        self.num_proposals = num_proposals
-        self.lang_size = lang_size
-        self.hidden_size = hidden_size
-        self.use_brnet = use_brnet
-        self.use_dgcnn = use_dgcnn
-        self.use_cross_attn = use_cross_attn
+        self.num_text_classes = num_text_classes
+        self.use_lang_classifier = use_lang_classifier
+        self.use_bidir = use_bidir
+        self.use_self_attn = use_self_attn
 
-        self.cross1 = nn.Linear(self.lang_size, hidden_size)
-        self.cross2 = nn.Linear(self.hidden_size, hidden_size)
-
-        self.fuse = nn.Sequential(
-            nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
-            nn.ReLU()
+        self.gru = nn.GRU(
+            input_size=emb_size,
+            hidden_size=hidden_size,
+            batch_first=True,
+            bidirectional=self.use_bidir
         )
+        lang_size = hidden_size * 2 if self.use_bidir else hidden_size
+        if self.use_self_attn:
+            self.attention = SelfAttention(lang_size)
 
-        self.graph = DGCNN(
-            #input_dim=self.lang_size + 128 + self.use_brnet*128,
-            input_dim=128 + self.use_brnet * 128,
-            output_dim=128,
-            k=6
-        )
-
-        self.skip = nn.Sequential(
-            #nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
-            nn.Conv1d(128 + self.use_brnet * 128, hidden_size, 1),
-        )
-
-        self.match = nn.Sequential(
-            nn.Conv1d(hidden_size, hidden_size, 1),
-            nn.ReLU(),
-            nn.BatchNorm1d(hidden_size),
-            nn.Conv1d(hidden_size, hidden_size, 1),
-            nn.ReLU(),
-            nn.BatchNorm1d(hidden_size),
-            nn.Conv1d(hidden_size, 1, 1)
-        )
+        # language classifier
+        if use_lang_classifier:
+            self.lang_cls = nn.Sequential(
+                nn.Linear(lang_size, num_text_classes),
+                nn.Dropout()
+            )
 
     def forward(self, data_dict):
         """
-        Args:
-            xyz: (B,K,3)
-            features: (B,C,K)
-        Returns:
-            scores: (B,num_proposal,2+3+NH*2+NS*4) 
+        encode the input descriptions
         """
+        word_embs = data_dict["lang_feat"]
 
-        # unpack outputs from detection branch
-        if self.use_brnet:
-            features = data_dict['fused_features']  # batch_size, num_proposal, 256
+        if self.use_self_attn:
+            input_lengths = data_dict["lang_len"]
+            _, sorted_idx = torch.sort(input_lengths, descending=True)  # sort by length in descending order
+            word_embs = word_embs[sorted_idx]
+            lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+            # encode description
+            feats, _ = self.gru(lang_feat)
+            feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
+            _, unsorted_idx = sorted_idx.sort() # unsort in original order
+            feats = feats[unsorted_idx]
+            # self attention
+            attn_weight = self.attention(feats) # batch, timestep, timestep
+            attn_value = torch.bmm(attn_weight, feats)  # B, T, H
+            lang_last = torch.max(attn_value, 1) # B, H
+            data_dict["attn_weight"] = attn_weight
+            data_dict["attn_value"] = attn_value
+
         else:
-            features = data_dict['aggregated_vote_features'] # batch_size, num_proposal, 128
+            lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+            _, lang_last = self.gru(lang_feat)
+            lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1)  # batch_size, hidden_size * num_dir
 
-        objectness_masks = data_dict['objectness_scores'].max(2)[1].float().unsqueeze(2) # batch_size, num_proposals, 1
+        # store the encoded language features
+        data_dict["lang_emb"] = lang_last  # batch, hidden_size
 
-        # unpack outputs from language branch
-        lang_feat = data_dict["lang_emb"] # batch_size, lang_size
-        lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
-
-        # DGCNN
-        if self.use_dgcnn:
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-            # mask out invalid proposals
-            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-            features = features * objectness_masks  # batch_size, 128, num_proposals
-            skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
-            features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
-        else:
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-            features = features * objectness_masks
-
-        if self.use_cross_attn:
-            lang_feat = data_dict["attn_value"].permute(0, 2, 1).contiguous() # batch_size, timestep, lang_size
-            lang_feat = self.cross1(lang_feat) # batch_size, timestep, hidden_size
-            features = self.cross2(features.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, hidden_size
-            score = torch.bmm(features, lang_feat.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, timestep
-            weight = nn.functional.softmax(score, dim=2)
-            value = torch.bmm(weight, lang_feat)  # batch_size, num_proposals, hidden_size
-            value = self.cross2(value).squeeze(2) # batch_size, num_proposals
-            #match
-            confidences = self.match(value).squeeze(1) # batch_size, num_proposals
-        else:
-             # match
-            confidences = self.match(features).squeeze(1) # batch_size, num_proposals
-
-        data_dict["cluster_ref"] = confidences
+        # classify
+        if self.use_lang_classifier:
+            data_dict["lang_scores"] = self.lang_cls(data_dict["lang_emb"])
 
         return data_dict
