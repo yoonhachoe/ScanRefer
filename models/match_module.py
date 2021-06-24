@@ -64,14 +64,6 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
-        # fuse
-        #features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 256(128) + lang_size
-        #features = features.permute(0, 2, 1).contiguous()  # batch_size, 256(128) + lang_size, num_proposals
-
-        if not self.use_dgcnn:
-            # fuse features
-            features = self.fuse(features)  # batch_size, hidden_size, num_proposals
-
         # mask out invalid proposals
         objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
         features = features * objectness_masks  # batch_size, 256(128) + lang_size, num_proposals
@@ -80,6 +72,20 @@ class MatchModule(nn.Module):
         if self.use_dgcnn:
             skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
             features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
+
+        # fuse
+        features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 256(128) + lang_size
+        features = features.permute(0, 2, 1).contiguous()  # batch_size, 256(128) + lang_size, num_proposals
+        features = self.fuse(features)  # batch_size, hidden_size, num_proposals
+
+        if not self.use_dgcnn:
+            # fuse features
+            features = self.fuse(features)  # batch_size, hidden_size, num_proposals
+
+        # DGCNN
+        #if self.use_dgcnn:
+        #    skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+        #    features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
 
         if self.use_cross_attn:
             lang_feat = self.cross1(lang_feat) # batch_size, num_proposals, hidden_size
