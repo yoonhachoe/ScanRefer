@@ -75,7 +75,7 @@ class MatchModule(nn.Module):
         if self.use_dgcnn:
             skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
             features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
-
+        features = features.permute(0, 2, 1).contiguous()  # batch_size,num_proposals 128+lang_size,
         # fuse
         features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 256(128) + lang_size
         features = features.permute(0, 2, 1).contiguous()  # batch_size, 256(128) + lang_size, num_proposals
