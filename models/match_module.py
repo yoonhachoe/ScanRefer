@@ -24,7 +24,8 @@ class MatchModule(nn.Module):
 
         if self.use_dgcnn:
             self.graph = DGCNN(
-                input_dim=self.lang_size + 128 + self.use_brnet*128,
+                #input_dim=self.lang_size + 128 + self.use_brnet*128,
+                input_dim=128 + self.use_brnet * 128,
                 output_dim=128,
                 k=6
             )
