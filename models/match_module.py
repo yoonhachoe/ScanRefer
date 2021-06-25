@@ -66,7 +66,7 @@ class MatchModule(nn.Module):
         if self.skip_connection:
 
             skip_features = self.reduce(features)  # reduce dim from 384 to 128
-            graph_out_features = self.graph(features) + skip_features  # skip connection  # batch_size, hidden_size, num_proposals
+            graph_out_features = self.graph(features, center) + skip_features  # skip connection  # batch_size, hidden_size, num_proposals
 
         else:
             graph_out_features = self.graph(features) # batch_size, hidden_size, num_proposals
