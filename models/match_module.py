@@ -96,12 +96,12 @@ class MatchModule(nn.Module):
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, lang_cross) # batch_size, num_proposals, hidden_size
             # fuse
-            features = torch.cat([value, lang_feat], dim=-1)  # batch_size, num_proposals, hidden_size + lang_size
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, hidden_size + lang_size, num_proposals
+            #features = torch.cat([value, lang_feat], dim=-1)  # batch_size, num_proposals, hidden_size + lang_size
+            #features = features.permute(0, 2, 1).contiguous()  # batch_size, hidden_size + lang_size, num_proposals
             # fuse features
-            features = self.fuse(features)  # batch_size, hidden_size, num_proposals
+            #features = self.fuse(features)  # batch_size, hidden_size, num_proposals
             #match
-            confidences = self.match(features).squeeze(1) # batch_size, num_proposals
+            confidences = self.match(value.permute(0, 2, 1).contiguous()).squeeze(1) # batch_size, num_proposals
         else:
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
