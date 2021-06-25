@@ -44,16 +44,6 @@ class MatchModule(nn.Module):
             nn.Conv1d(hidden_size, 1, 1)
         )
 
-        self.match_skip = nn.Sequential(
-            nn.Conv1d(2*hidden_size, hidden_size, 1),
-            nn.ReLU(),
-            nn.BatchNorm1d(hidden_size),
-            nn.Conv1d(hidden_size, hidden_size, 1),
-            nn.ReLU(),
-            nn.BatchNorm1d(hidden_size),
-            nn.Conv1d(hidden_size, 1, 1)
-        )
-
     def forward(self, data_dict):
         """
         Args:
