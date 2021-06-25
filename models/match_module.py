@@ -15,7 +15,7 @@ class MatchModule(nn.Module):
         self.fuse_before = fuse_before
 
         self.cross1 = nn.Linear(self.lang_size, hidden_size)
-        self.cross2 = nn.Linear(self.hidden_size, hidden_size)
+        self.cross2 = nn.Linear(self.hidden_size+self.fuse_before*self.lang_size, hidden_size)
 
         self.fuse = nn.Sequential(
             nn.Conv1d(self.lang_size + 128, hidden_size, 1),
