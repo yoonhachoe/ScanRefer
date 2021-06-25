@@ -28,7 +28,7 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            input_dim=self.lang_size + 3 + 128,
+            input_dim=3 + 128,
             output_dim=128,
             k=6
         )
