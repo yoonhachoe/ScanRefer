@@ -44,7 +44,7 @@ class LangModule(nn.Module):
         word_embs = word_embs[sorted_idx]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
         # encode description
-        feats, _ = self.gru(lang_feat)
+        feats, lang_last = self.gru(lang_feat)
         feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
         _, unsorted_idx = sorted_idx.sort()  # unsort in original order
         feats = feats[unsorted_idx]
@@ -53,12 +53,11 @@ class LangModule(nn.Module):
             # self attention
             attn_weight = self.attention(feats) # batch, timestep, timestep
             attn_value = torch.bmm(attn_weight, feats)  # B, T, H
-            lang_last = torch.max(attn_value, 1) # B, H
+            lang_last = torch.sum(attn_value, dim=1) # B, H
             #data_dict["attn_weight"] = attn_weight
             data_dict["attn_value"] = attn_value
 
         else:
-            _, lang_last = self.gru(lang_feat)
             lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1)  # batch_size, hidden_size * num_dir
             data_dict["attn_value"] = feats
 
