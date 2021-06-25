@@ -22,6 +22,11 @@ class MatchModule(nn.Module):
             nn.ReLU()
         )
 
+        self.fuse2 = nn.Sequential(
+            nn.Conv1d(self.hidden_size*2, hidden_size, 1),
+            nn.ReLU()
+        )
+
         self.graph = DGCNN(
             input_dim=self.fuse_before*self.lang_size + 3 + 128,
             output_dim=128,
@@ -102,7 +107,9 @@ class MatchModule(nn.Module):
             score = torch.bmm(features_cross, lang_cross.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, timestep
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, lang_cross) # batch_size, num_proposals, hidden_size
-            value = value + features.permute(0, 2, 1).contiguous() # batch_size, num_proposals, hidden_size
+            #value = value + features.permute(0, 2, 1).contiguous() # batch_size, num_proposals, hidden_size
+            value = torch.cat([value, features.permute(0, 2, 1).contiguous()], dim=-1) # batch_size, num_proposals, 2*hidden_size
+            features = self.fuse2(features)
             #match
             confidences = self.match(value.permute(0, 2, 1).contiguous()).squeeze(1) # batch_size, num_proposals
         else:
