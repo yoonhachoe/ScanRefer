@@ -27,6 +27,10 @@ class LangModule(nn.Module):
         if self.use_self_attn:
             self.attention = SelfAttention(lang_size)
 
+        self.fc = nn.Linear(
+            nn.Linear(CONF.TRAIN.MAX_DES_LEN, 1)
+        )
+
         # language classifier
         if use_lang_classifier:
             self.lang_cls = nn.Sequential(
@@ -53,8 +57,9 @@ class LangModule(nn.Module):
             # self attention
             attn_weight = self.attention(feats) # batch, timestep, timestep
             attn_value = torch.bmm(attn_weight, feats)  # B, T, H
+            lang_last = self.fc(attn_value.permute(0, 2, 1).contiguous())  # B, H
             #lang_last,_ = torch.max(attn_value, 1)  # B, H
-            lang_last = torch.sum(attn_value, dim=1) # B, H
+            #lang_last = torch.sum(attn_value, dim=1) # B, H
             #data_dict["attn_weight"] = attn_weight
             data_dict["attn_value"] = attn_value
 
