@@ -10,13 +10,14 @@ from models.selfattention import SelfAttention
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False,
-                 emb_size=300, hidden_size=256, use_self_attn=False):
+                 emb_size=300, hidden_size=256, weight_size = 20, use_self_attn=False):
         super().__init__()
 
         self.num_text_classes = num_text_classes
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir
         self.use_self_attn = use_self_attn
+        self.weight_size = weight_size
 
         self.gru = nn.GRU(
             input_size=emb_size,
@@ -28,7 +29,7 @@ class LangModule(nn.Module):
         if self.use_self_attn:
             self.attention = SelfAttention(lang_size)
 
-        self.fc = nn.Linear(CONF.TRAIN.MAX_DES_LEN, 1)
+        self.fc = nn.Linear(self.weight_size, 1)
 
         # language classifier
         if use_lang_classifier:
@@ -54,9 +55,9 @@ class LangModule(nn.Module):
             _, unsorted_idx = sorted_idx.sort()  # unsort in original order
             feats = feats[unsorted_idx]
             # self attention
-            attn_weight = self.attention(feats) # batch, timestep, timestep
-            attn_value = torch.bmm(attn_weight, feats)  # B, T, H
-            lang_last = self.fc(attn_value.permute(0, 2, 1).contiguous())  # B, H
+            attn_weight = self.attention(feats) # batch, timestep, weight_size
+            attn_value = torch.bmm(feats.permute(0, 2, 1).contiguous(), attn_weight)  # B, H, W
+            lang_last = self.fc(attn_value)  # B, H
             #lang_last,_ = torch.max(attn_value, 1)  # B, H
             #lang_last = torch.sum(attn_value, dim=1) # B, H
             #data_dict["attn_weight"] = attn_weight
