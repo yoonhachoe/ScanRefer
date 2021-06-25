@@ -4,7 +4,7 @@ from models.dgcnn import DGCNN
 
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_brnet=False, use_cross_attn=False, use_dgcnn=False):
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_brnet=False, use_cross_attn=False, use_dgcnn=False, fuse_before=False):
         super().__init__() 
 
         self.num_proposals = num_proposals
@@ -13,6 +13,7 @@ class MatchModule(nn.Module):
         self.use_brnet = use_brnet
         self.use_dgcnn = use_dgcnn
         self.use_cross_attn = use_cross_attn
+        self.fuse_before = fuse_before
 
         self.cross1 = nn.Linear(self.lang_size, hidden_size)
         self.cross2 = nn.Linear(self.hidden_size, hidden_size)
@@ -23,15 +24,14 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            #input_dim=self.lang_size + 128 + self.use_brnet*128,
-            input_dim=128 + self.use_brnet * 128,
+            input_dim=self.fuse_before*self.lang_size + 128 + self.use_brnet*128,
+            #input_dim=128 + self.use_brnet * 128,
             output_dim=128,
             k=6
         )
 
         self.skip = nn.Sequential(
-            #nn.Conv1d(self.lang_size + 128 + self.use_brnet*128, hidden_size, 1),
-            nn.Conv1d(128 + self.use_brnet * 128, hidden_size, 1),
+            nn.Conv1d(self.fuse_before*self.lang_size128 + self.use_brnet * 128, hidden_size, 1),
         )
 
         self.match = nn.Sequential(
@@ -67,23 +67,30 @@ class MatchModule(nn.Module):
 
         # DGCNN
         if self.use_dgcnn:
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-            # mask out invalid proposals
-            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-            features = features * objectness_masks  # batch_size, 128, num_proposals
-            skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
-            features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
-        else:
-            if not self.use_cross_attn:
+            if self.fuse_before: #fuse language and visual
+                # fuse
+                features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
+                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
+                # mask out invalid proposals
+                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+                features = features * objectness_masks  # batch_size, 128, num_proposals
+                skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+                features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
+            else: #only visual
+                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
+                # mask out invalid proposals
+                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+                features = features * objectness_masks  # batch_size, 128, num_proposals
+                skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+                features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
+        else: #no graph
+            if not self.use_cross_attn: #no cross-attention (same as scanrefer)
                 # fuse
                 features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
                 features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
                 # fuse features
                 features = self.fuse(features)  # batch_size, hidden_size, num_proposals
-                # mask out invalid proposals
-                #objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-                #features = features * objectness_masks
-            else:
+            else: #only visual
                 features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
                 objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
                 features = features * objectness_masks
