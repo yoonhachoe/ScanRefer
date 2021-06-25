@@ -14,48 +14,31 @@ def knn(x, k):
     return idx
 
 
-def get_graph_feature(x, center, k=20, idx=None, subtract=True, dist_bbox=False):
-    """
-    Added knn with bbox coord to initial implementation
-    :param dist_bbox if True compute knn based on dist bounding box center else on input features
-    """
+def get_graph_feature(x, k=20, idx=None):
     batch_size = x.size(0)
     device = x.device
-
-    num_points = x.size(2)  # for us this corresponds to number of objects.
+    num_points = x.size(2)
     x = x.view(batch_size, -1, num_points)
-
     if idx is None:
+        idx = knn(x, k=k)   # (batch_size, num_points, k)
+    #device = torch.device('cuda')
 
-        if dist_bbox:
-            idx = knn(center, k=k)  # (batch_size, num_points, k)
+    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1)*num_points
 
-        else:
-            idx = knn(x, k=k)  # (batch_size, num_points, k)
-    else:
-        k = idx.shape[-1]
-
-    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
     idx = idx + idx_base
+
     idx = idx.view(-1)
+ 
     _, num_dims, _ = x.size()
 
-    x = x.transpose(2, 1).contiguous()  # (batch_size, num_obj, num_dims)  -> (batch_size*num_obj, num_dims)
-    #  batch_size * num_obj * k + range(0, batch_size*num_points)
-
-    feature = x.view(batch_size * num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims)
+    x = x.transpose(2, 1).contiguous()   # (batch_size, num_points, num_dims)  -> (batch_size*num_points, num_dims) #   batch_size * num_points * k + range(0, batch_size*num_points)
+    feature = x.view(batch_size*num_points, -1)[idx, :]
+    feature = feature.view(batch_size, num_points, k, num_dims) 
     x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
-
-    if subtract:
-        interaction = feature - x
-    else:
-        interaction = feature
-
-    feature = torch.cat((interaction, x), dim=3).permute(0, 3, 1, 2).contiguous()
-
+    
+    feature = torch.cat((feature-x, x), dim=3).permute(0, 3, 1, 2).contiguous()
+  
     return feature
-
 
 class DGCNN(nn.Module):
 
