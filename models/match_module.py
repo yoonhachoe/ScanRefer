@@ -103,7 +103,6 @@ class MatchModule(nn.Module):
             #match
             confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
-            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
             features = features * objectness_masks
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
