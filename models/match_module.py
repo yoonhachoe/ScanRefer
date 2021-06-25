@@ -34,7 +34,8 @@ class MatchModule(nn.Module):
         self.graph = DGCNN(initial_dim=128 + self.lang_size,  # if fuse before
                            out_dim=128,
                            k_neighbors=7,
-                           intermediate_feat_dim=[64, 64, 128])
+                           intermediate_feat_dim=[64, 64, 128],
+                           subtract_from_self=True)
 
     def forward(self, data_dict):
         """
@@ -53,6 +54,10 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"]  # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1)  # batch_size, num_proposals, lang_size
 
+        # unpack bbox coordinates
+        center = data_dict['center']  # (batch_size, num_proposal, 3)
+        center = center.permute(0, 2, 1).contiguous()  # (batch_size, 3, num_proposal)
+
         # concat lang and object features
         features = torch.cat([features, lang_feat], dim=-1)
         features = features.permute(0, 2, 1).contiguous()  # batch_size, 128+lang_size, num_proposals
@@ -68,7 +73,7 @@ class MatchModule(nn.Module):
             graph_out_features = self.graph(features, center) + skip_features  # skip connection  # batch_size, hidden_size, num_proposals
 
         else:
-            graph_out_features = self.graph(features) # batch_size, hidden_size, num_proposals
+            graph_out_features = self.graph(features, center) # batch_size, hidden_size, num_proposals
 
         # fuse lang features twice
         if self.fuse_twice:
