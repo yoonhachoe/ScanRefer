@@ -15,7 +15,7 @@ class MatchModule(nn.Module):
         self.fuse_before = fuse_before
 
         self.cross1 = nn.Linear(self.lang_size, hidden_size)
-        self.cross2 = nn.Linear(self.hidden_size+self.fuse_before*self.lang_size, hidden_size)
+        self.cross2 = nn.Linear(self.hidden_size+self.lang_size, hidden_size)
 
         self.fuse = nn.Sequential(
             nn.Conv1d(self.lang_size + 128, hidden_size, 1),
@@ -28,13 +28,13 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            input_dim=self.fuse_before*self.lang_size + 3 + 128,
+            input_dim=self.lang_size + 3 + 128,
             output_dim=128,
             k=6
         )
 
         self.skip = nn.Sequential(
-            nn.Conv1d(self.fuse_before*self.lang_size + 128, hidden_size, 1),
+            nn.Conv1d(self.lang_size + 128, hidden_size, 1),
         )
 
         self.match = nn.Sequential(
@@ -58,7 +58,6 @@ class MatchModule(nn.Module):
 
         # unpack outputs from detection branch
         features = data_dict['aggregated_vote_features'] # batch_size, num_proposal, 128
-
         objectness_masks = data_dict['objectness_scores'].max(2)[1].float().unsqueeze(2) # batch_size, num_proposals, 1
 
         # unpack outputs from language branch
@@ -70,24 +69,15 @@ class MatchModule(nn.Module):
 
         # DGCNN
         if self.use_dgcnn:
-            if self.fuse_before: #fuse language and visual
-                # fuse
-                features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
-                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
-                # mask out invalid proposals
-                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-                features = features * objectness_masks  # batch_size, 128, num_proposals
-                skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
-                features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
-                features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
-            else: #only visual
-                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-                # mask out invalid proposals
-                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-                features = features * objectness_masks  # batch_size, 128, num_proposals
-                skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
-                features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
-                features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
+            # fuse
+            features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
+            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
+            # mask out invalid proposals
+            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+            features = features * objectness_masks  # batch_size, 128 + lang_size, num_proposals
+            skipfeatures = self.skip(features)  # batch_size, 128, num_proposals
+            features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
+            features = self.graph(features) + skipfeatures  # batch_size, 128, num_proposals
 
         else: #no graph
             if not self.use_cross_attn: #no cross-attention (same as scanrefer)
@@ -113,6 +103,8 @@ class MatchModule(nn.Module):
             #match
             confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
+            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+            features = features * objectness_masks
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
 
