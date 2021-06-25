@@ -31,11 +31,11 @@ class MatchModule(nn.Module):
             nn.Conv1d(hidden_size, 1, 1)
         )
 
-        self.graph = DGCNN(
-            input_dim=self.lang_size + 128,
-            output_dim=hidden_size,
-            k=7
-        )
+        self.graph = DGCNN(initial_dim=128 + self.lang_size,  # if fuse before
+                           out_dim=128,
+                           k_neighbors=7,
+                           intermediate_feat_dim=[64, 64, 128],
+                           subtract_from_self=True)
 
     def forward(self, data_dict):
         """
