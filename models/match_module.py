@@ -34,8 +34,7 @@ class MatchModule(nn.Module):
         self.graph = DGCNN(initial_dim=128 + self.lang_size,  # if fuse before
                            out_dim=128,
                            k_neighbors=7,
-                           intermediate_feat_dim=[64, 64, 128],
-                           subtract_from_self=True)
+                           intermediate_feat_dim=[64, 64, 128])
 
     def forward(self, data_dict):
         """
