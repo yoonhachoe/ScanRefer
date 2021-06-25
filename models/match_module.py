@@ -26,11 +26,11 @@ class MatchModule(nn.Module):
             nn.ReLU()
         )
 
-        self.graph = DGCNN(
-            input_dim=+ self.lang_size + 128,
-            output_dim=hidden_size,
-            k=6
-        )
+        self.graph = DGCNN(initial_dim=128 + self.lang_size,  # if fuse before
+                           out_dim=128,
+                           k_neighbors=7,
+                           intermediate_feat_dim=[64, 64, 128],
+                           subtract_from_self=True)
 
         self.skip = nn.Sequential(
             nn.Conv1d(self.lang_size + 128, hidden_size, 1),
@@ -63,6 +63,9 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
+        # unpack bbox coordinates
+        center = data_dict['center']  # (batch_size, num_proposal, 3)
+        center = center.permute(0, 2, 1).contiguous()  # (batch_size, 3, num_proposal)
         # DGCNN
         if self.use_dgcnn:
             # fuse
@@ -72,7 +75,7 @@ class MatchModule(nn.Module):
             objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
             features = features * objectness_masks  # batch_size, 128 + lang_size, num_proposals
             skipfeatures = self.skip(features)  # batch_size, 128, num_proposals
-            features = self.graph(features) + skipfeatures  # batch_size, 128, num_proposals
+            features = self.graph(features, center) + skipfeatures  # batch_size, 128, num_proposals
 
         else: #no graph
             if not self.use_cross_attn: #no cross-attention (same as scanrefer)
