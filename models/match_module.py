@@ -81,8 +81,8 @@ class MatchModule(nn.Module):
                 # fuse features
                 features = self.fuse(features)  # batch_size, hidden_size, num_proposals
                 # mask out invalid proposals
-                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-                features = features * objectness_masks
+                #objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
+                #features = features * objectness_masks
             else:
                 features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
                 objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
