@@ -4,7 +4,7 @@ from models.dgcnn import DGCNN
 
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_cross_attn=False, use_dgcnn=False, fuse_before=False):
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, use_cross_attn=False, use_dgcnn=False):
         super().__init__() 
 
         self.num_proposals = num_proposals
@@ -12,7 +12,6 @@ class MatchModule(nn.Module):
         self.hidden_size = hidden_size
         self.use_dgcnn = use_dgcnn
         self.use_cross_attn = use_cross_attn
-        self.fuse_before = fuse_before
 
         self.cross1 = nn.Linear(self.lang_size, hidden_size)
         self.cross2 = nn.Linear(self.hidden_size+self.lang_size, hidden_size)
@@ -28,8 +27,8 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            input_dim=3 + 128,
-            output_dim=128,
+            input_dim=+ self.lang_size + 128,
+            output_dim=hidden_size,
             k=6
         )
 
@@ -64,19 +63,15 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
-        center = data_dict['center']  # batch_size, num_proposal, 3
-        center = center.permute(0, 2, 1).contiguous()  # batch_size, 3, num_proposal
-
         # DGCNN
         if self.use_dgcnn:
             # fuse
-            #features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
-            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
+            features = torch.cat([features, lang_feat], dim=-1)  # batch_size, num_proposals, 128 + lang_size
+            features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
             # mask out invalid proposals
             objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-            features = features * objectness_masks  # batch_size, 128, num_proposals
-            skipfeatures = features  # batch_size, 128, num_proposals
-            features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
+            features = features * objectness_masks  # batch_size, 128 + lang_size, num_proposals
+            skipfeatures = self.skip(features)  # batch_size, 128, num_proposals
             features = self.graph(features) + skipfeatures  # batch_size, 128, num_proposals
 
         else: #no graph
@@ -103,7 +98,6 @@ class MatchModule(nn.Module):
             #match
             confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
-            features = features * objectness_masks
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
 
