@@ -65,7 +65,7 @@ class DGCNN(nn.Module):
                                         nn.BatchNorm1d(out_dim),
                                         nn.LeakyReLU(negative_slope=0.2))
 
-    def forward(self, x, center, transpose_input_output=False, spatial_knn=None): #False -> input = B x params x num_obj x k
+    def forward(self, x): #False -> input = B x params x num_obj x k
         """ Feed forward.
         :param x: Tensor, [B x Num-objects x Feat-Dim], if transpose_input_output is True else the dims are
             [B x Feat-Dim x Num-objects]
@@ -76,7 +76,7 @@ class DGCNN(nn.Module):
 
         intermediate_features = []
         for layer in self.layers:
-            x = get_graph_feature(x, center, k=self.k, subtract=self.subtract_from_self, idx=spatial_knn)
+            x = get_graph_feature(x, k=self.k)
             x = layer(x)
             x = x.max(dim=-1)[0]
             intermediate_features.append(x)
