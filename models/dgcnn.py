@@ -1,6 +1,3 @@
-"""Original DGCNN implementation from:
-https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py
-"""
 import torch
 import torch.nn as nn
 
@@ -14,31 +11,48 @@ def knn(x, k):
     return idx
 
 
-def get_graph_feature(x, k=20, idx=None):
+def get_graph_feature(x, center, k=20, idx=None, subtract=True, dist_bbox=False):
+    """
+    Added knn with bbox coord to initial implementation
+    :param dist_bbox if True compute knn based on dist bounding box center else on input features
+    """
     batch_size = x.size(0)
     device = x.device
-    num_points = x.size(2)
+
+    num_points = x.size(2)  # for us this corresponds to number of objects.
     x = x.view(batch_size, -1, num_points)
+
     if idx is None:
-        idx = knn(x, k=k)   # (batch_size, num_points, k)
-    #device = torch.device('cuda')
 
-    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1)*num_points
+        if dist_bbox:
+            idx = knn(center, k=k)  # (batch_size, num_points, k)
 
+        else:
+            idx = knn(x, k=k)  # (batch_size, num_points, k)
+    else:
+        k = idx.shape[-1]
+
+    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
     idx = idx + idx_base
-
     idx = idx.view(-1)
- 
     _, num_dims, _ = x.size()
 
-    x = x.transpose(2, 1).contiguous()   # (batch_size, num_points, num_dims)  -> (batch_size*num_points, num_dims) #   batch_size * num_points * k + range(0, batch_size*num_points)
-    feature = x.view(batch_size*num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims) 
+    x = x.transpose(2, 1).contiguous()  # (batch_size, num_obj, num_dims)  -> (batch_size*num_obj, num_dims)
+    #  batch_size * num_obj * k + range(0, batch_size*num_points)
+
+    feature = x.view(batch_size * num_points, -1)[idx, :]
+    feature = feature.view(batch_size, num_points, k, num_dims)
     x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
-    
-    feature = torch.cat((feature-x, x), dim=3).permute(0, 3, 1, 2).contiguous()
-  
+
+    if subtract:
+        interaction = feature - x
+    else:
+        interaction = feature
+
+    feature = torch.cat((interaction, x), dim=3).permute(0, 3, 1, 2).contiguous()
+
     return feature
+
 
 class DGCNN(nn.Module):
 
@@ -65,17 +79,18 @@ class DGCNN(nn.Module):
                                         nn.BatchNorm1d(out_dim),
                                         nn.LeakyReLU(negative_slope=0.2))
 
-    def forward(self, x): #False -> input = B x params x num_obj x k
+    def forward(self, x, center, transpose_input_output=False, spatial_knn=None): #False -> input = B x params x num_obj x k
         """ Feed forward.
         :param x: Tensor, [B x Num-objects x Feat-Dim], if transpose_input_output is True else the dims are
             [B x Feat-Dim x Num-objects]
         :return: the result of forwarding x to DGCN
         """
- 
+        if transpose_input_output:
+            x = x.transpose(2, 1)  # feat-dim first, then objects
 
         intermediate_features = []
         for layer in self.layers:
-            x = get_graph_feature(x, k=self.k)
+            x = get_graph_feature(x, center, k=self.k, subtract=self.subtract_from_self, idx=spatial_knn)
             x = layer(x)
             x = x.max(dim=-1)[0]
             intermediate_features.append(x)
@@ -83,5 +98,6 @@ class DGCNN(nn.Module):
         x = torch.cat(intermediate_features, dim=1)
         x = self.final_conv(x)
 
-       
+        if transpose_input_output:
+            x = x.transpose(2, 1)
         return x
