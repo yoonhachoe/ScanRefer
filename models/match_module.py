@@ -34,7 +34,7 @@ class MatchModule(nn.Module):
         self.graph = DGCNN(
             input_dim=self.lang_size + 128,
             output_dim=hidden_size,
-            k=6
+            k=7
         )
 
     def forward(self, data_dict):
