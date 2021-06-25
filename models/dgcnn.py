@@ -71,8 +71,7 @@ class DGCNN(nn.Module):
             [B x Feat-Dim x Num-objects]
         :return: the result of forwarding x to DGCN
         """
-        if transpose_input_output:
-            x = x.transpose(2, 1)  # feat-dim first, then objects
+ 
 
         intermediate_features = []
         for layer in self.layers:
@@ -84,6 +83,5 @@ class DGCNN(nn.Module):
         x = torch.cat(intermediate_features, dim=1)
         x = self.final_conv(x)
 
-        if transpose_input_output:
-            x = x.transpose(2, 1)
+       
         return x
