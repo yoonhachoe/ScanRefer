@@ -109,7 +109,7 @@ class MatchModule(nn.Module):
             value = torch.bmm(weight, lang_cross) # batch_size, num_proposals, hidden_size
             #value = value + features.permute(0, 2, 1).contiguous() # batch_size, num_proposals, hidden_size
             value = torch.cat([value, features.permute(0, 2, 1).contiguous()], dim=-1) # batch_size, num_proposals, 2*hidden_size
-            value = self.fuse2(value)
+            value = self.fuse2(value.permute(0, 2, 1).contiguous())
             value = value * objectness_masks
             #match
             confidences = self.match(value.permute(0, 2, 1).contiguous()).squeeze(1) # batch_size, num_proposals
