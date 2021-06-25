@@ -29,7 +29,7 @@ class MatchModule(nn.Module):
         )
 
         self.skip = nn.Sequential(
-            nn.Conv1d(self.fuse_before*self.lang_size + 128, hidden_size+3, 1),
+            nn.Conv1d(self.fuse_before*self.lang_size + 128, hidden_size, 1),
         )
 
         self.match = nn.Sequential(
@@ -72,7 +72,7 @@ class MatchModule(nn.Module):
                 # mask out invalid proposals
                 objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
                 features = features * objectness_masks  # batch_size, 128, num_proposals
-                skipfeatures = self.skip(features)  # batch_size, hidden_size + 3, num_proposals
+                skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
                 features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
                 features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
             else: #only visual
