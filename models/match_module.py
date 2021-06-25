@@ -106,6 +106,7 @@ class MatchModule(nn.Module):
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, lang_cross) # batch_size, num_proposals, hidden_size
             value = value + features # batch_size, num_proposals, hidden_size
+            value = value.permute(0, 2, 1).contiguous() # batch_size, hidden_size, num_proposals
             #value = torch.cat([value, features], dim=-1) # batch_size, num_proposals, 2*hidden_size
             #value = self.fuse2(value.permute(0, 2, 1).contiguous()) # batch_size, hidden_size, num_proposals
             value = value * objectness_masks
