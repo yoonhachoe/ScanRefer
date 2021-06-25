@@ -24,7 +24,7 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            input_dim=self.fuse_before*self.lang_size + 128 + self.use_brnet*128,
+            input_dim=self.fuse_before*self.lang_size + 3 + 128 + self.use_brnet*128,
             #input_dim=128 + self.use_brnet * 128,
             output_dim=128,
             k=6
@@ -65,6 +65,9 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
+        center = data_dict['center']  # batch_size, num_proposal, 3
+        center = center.permute(0, 2, 1).contiguous()  # batch_size, 3, num_proposal
+
         # DGCNN
         if self.use_dgcnn:
             if self.fuse_before: #fuse language and visual
@@ -75,6 +78,7 @@ class MatchModule(nn.Module):
                 objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
                 features = features * objectness_masks  # batch_size, 128, num_proposals
                 skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+                features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
                 features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
             else: #only visual
                 features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
