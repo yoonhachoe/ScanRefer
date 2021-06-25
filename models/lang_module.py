@@ -28,9 +28,7 @@ class LangModule(nn.Module):
         if self.use_self_attn:
             self.attention = SelfAttention(lang_size)
 
-        self.fc = nn.Linear(
-            nn.Linear(CONF.TRAIN.MAX_DES_LEN, 1)
-        )
+        self.fc = nn.Linear(CONF.TRAIN.MAX_DES_LEN, 1)
 
         # language classifier
         if use_lang_classifier:
