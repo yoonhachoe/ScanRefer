@@ -40,16 +40,16 @@ class LangModule(nn.Module):
         """
         word_embs = data_dict["lang_feat"]
         input_lengths = data_dict["lang_len"]
-        _, sorted_idx = torch.sort(input_lengths, descending=True)  # sort by length in descending order
-        word_embs = word_embs[sorted_idx]
-        lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
-        # encode description
-        feats, lang_last = self.gru(lang_feat)
-        feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
-        _, unsorted_idx = sorted_idx.sort()  # unsort in original order
-        feats = feats[unsorted_idx]
 
         if self.use_self_attn:
+            _, sorted_idx = torch.sort(input_lengths, descending=True)  # sort by length in descending order
+            word_embs = word_embs[sorted_idx]
+            lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+            # encode description
+            feats, _ = self.gru(lang_feat)
+            feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
+            _, unsorted_idx = sorted_idx.sort()  # unsort in original order
+            feats = feats[unsorted_idx]
             # self attention
             attn_weight = self.attention(feats) # batch, timestep, timestep
             attn_value = torch.bmm(attn_weight, feats)  # B, T, H
@@ -58,7 +58,18 @@ class LangModule(nn.Module):
             data_dict["attn_value"] = attn_value
 
         else:
+            lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+            _, lang_last = self.gru(lang_feat)
             lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1)  # batch_size, hidden_size * num_dir
+
+            _, sorted_idx = torch.sort(input_lengths, descending=True)  # sort by length in descending order
+            word_embs = word_embs[sorted_idx]
+            lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+            # encode description
+            feats, _ = self.gru(lang_feat)
+            feats, _ = pad_packed_sequence(feats, batch_first=True)  # batch, timestep, hidden_size
+            _, unsorted_idx = sorted_idx.sort()  # unsort in original order
+            feats = feats[unsorted_idx]
             data_dict["attn_value"] = feats
 
         # store the encoded language features
