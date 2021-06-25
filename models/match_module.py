@@ -88,6 +88,7 @@ class MatchModule(nn.Module):
                 skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
                 features = torch.cat([features, center], dim=1)  # batch_size, 128 + 3, num_proposals
                 features = self.graph(features) + skipfeatures # batch_size, hidden_size, num_proposals
+
         else: #no graph
             if not self.use_cross_attn: #no cross-attention (same as scanrefer)
                 # fuse
@@ -95,24 +96,21 @@ class MatchModule(nn.Module):
                 features = features.permute(0, 2, 1).contiguous()  # batch_size, 128 + lang_size, num_proposals
                 # fuse features
                 features = self.fuse(features)  # batch_size, hidden_size, num_proposals
-            else: #only visual
-                features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
-                objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
-                #features = features * objectness_masks
 
         if self.use_cross_attn:
+            objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
             lang_cross = data_dict["attn_value"] # batch_size, timestep, lang_size
             lang_cross = self.cross1(lang_cross) # batch_size, timestep, hidden_size
-            features_cross = self.cross2(features.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, hidden_size
+            features_cross = self.cross2(features) # batch_size, num_proposals, hidden_size
             score = torch.bmm(features_cross, lang_cross.permute(0, 2, 1).contiguous()) # batch_size, num_proposals, timestep
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, lang_cross) # batch_size, num_proposals, hidden_size
             #value = value + features.permute(0, 2, 1).contiguous() # batch_size, num_proposals, hidden_size
-            value = torch.cat([value, features.permute(0, 2, 1).contiguous()], dim=-1) # batch_size, num_proposals, 2*hidden_size
-            value = self.fuse2(value.permute(0, 2, 1).contiguous())
+            value = torch.cat([value, features], dim=-1) # batch_size, num_proposals, 2*hidden_size
+            value = self.fuse2(value.permute(0, 2, 1).contiguous()) # batch_size, hidden_size, num_proposals
             value = value * objectness_masks
             #match
-            confidences = self.match(value.permute(0, 2, 1).contiguous()).squeeze(1) # batch_size, num_proposals
+            confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
              # match
             confidences = self.match(features).squeeze(1) # batch_size, num_proposals
