@@ -91,8 +91,10 @@ class MatchModule(nn.Module):
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, features) # batch_size, num_proposals + timestep, hidden_size
             final_features = value[:,[0,P-1],:] # b, p, hidden_size
+            print(final_features.size())
             final_lang = value[:,[P,P+T-1],:] # b, t, lang_size
             final_lang, _ = torch.max(final_lang, 1) # b, lang_size
+            print(final_lang.size())
             #match
             confidences = torch.bmm(final_features, final_lang.unsqueeze(2)).squeeze(2)# b, p
             print(confidences.size())
