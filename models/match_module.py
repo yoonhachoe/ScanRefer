@@ -83,6 +83,7 @@ class MatchModule(nn.Module):
         if self.use_cross_attn:
             features = features.permute(0, 2, 1).contiguous()  # batch_size, num_proposals, hidden_size
             _, P, _ = features.size()
+            print(P)
             lang_token = data_dict["attn_value"] # batch_size, timestep, lang_size
             _, T, _ = lang_token.size()
             features = torch.cat([features, lang_token], dim=1)  # batch_size, num_proposals + timestep, hidden_size
