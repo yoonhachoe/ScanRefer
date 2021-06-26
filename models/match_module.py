@@ -82,15 +82,18 @@ class MatchModule(nn.Module):
 
         if self.use_cross_attn:
             features = features.permute(0, 2, 1).contiguous()  # batch_size, num_proposals, hidden_size
-            _, P, _ = features.size()
+            _, P, x = features.size()
             print(P)
+            print(x)
             lang_token = data_dict["attn_value"] # batch_size, timestep, lang_size
             _, T, _ = lang_token.size()
+            print(T)
             features = torch.cat([features, lang_token], dim=1)  # batch_size, num_proposals + timestep, hidden_size
             score = self.cross(features) # batch_size, num_proposals + timestep, lang_size
             score = torch.bmm(score, features.permute(0, 2, 1).contiguous()) # batch_size, num_proposals + timestep, num_proposals + timestep
             weight = nn.functional.softmax(score, dim=2)
             value = torch.bmm(weight, features) # batch_size, num_proposals + timestep, hidden_size
+            print(value.size())
             final_features = value[:,[0,P-1],:] # b, p, hidden_size
             print(final_features.size())
             final_lang = value[:,[P,P+T-1],:] # b, t, lang_size
