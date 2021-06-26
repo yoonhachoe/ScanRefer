@@ -21,13 +21,13 @@ class MatchModule(nn.Module):
         )
 
         self.graph = DGCNN(
-            input_dim=self.lang_size + self.hidden_size,
+            input_dim=self.lang_size + 128,
             output_dim=self.hidden_size,
             k=6
         )
 
         self.fuse = nn.Sequential(
-            nn.Conv1d(self.lang_size + 128, hidden_size, 1),
+            nn.Conv1d(self.lang_size + 128, self.hidden_size, 1),
             nn.ReLU()
         )
 
