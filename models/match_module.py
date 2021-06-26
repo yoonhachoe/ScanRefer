@@ -94,7 +94,7 @@ class MatchModule(nn.Module):
             final_lang = value[:,[P,P+T-1],:] # b, t, lang_size
             final_lang, _ = torch.max(final_lang, 1) # b, lang_size
             #match
-            confidences = torch.bmm(final_features, final_lang),squeeze(2) # b, p
+            confidences = torch.bmm(final_features, final_lang).squeeze(2) # b, p
             #confidences = self.match(value).squeeze(1) # batch_size, num_proposals
         else:
              # match
