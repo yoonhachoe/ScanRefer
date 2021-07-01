@@ -74,7 +74,7 @@ class MatchModule(nn.Module):
             # mask out invalid proposals
             objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
             features = features * objectness_masks  # batch_size, 128, num_proposals
-            features = self.graph(features)  # batch_size, hidden_size, num_proposals
+            features = self.graph(features)+features  # batch_size, hidden_size, num_proposals
 
         else: #no graph
             # fuse
@@ -110,7 +110,6 @@ class MatchModule(nn.Module):
             value = torch.cat([features, value], dim=-1)  # batch_size, num_proposals, hidden_size+lang_size
             value = value.permute(0, 2, 1).contiguous()  # batch_size, hidden_size+lang_size, num_proposals
             value = self.fuse(value)  # batch_size, hidden_size, num_proposals
-            value = value * objectness_masks  # batch_size, hidden_size, num_proposals
             # match
             confidences = self.match(value).squeeze(1)  # batch_size, num_proposals
 
