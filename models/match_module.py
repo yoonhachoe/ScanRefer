@@ -101,21 +101,20 @@ class MatchModule(nn.Module):
            # value = torch.bmm(weight, lang_cross)  # batch_size, num_proposals, hidden_size
            # value = value + features  # batch_size, num_proposals, hidden_size
            # value = value.permute(0, 2, 1).contiguous()  # batch_size, hidden_size, num_proposals
-            #value = value * objectness_masks
             # match
            # confidences = self.match(value).squeeze(1)  # batch_size, num_proposals
 
         if self.use_cross_attn:
             features = features.permute(0, 2, 1).contiguous()  # batch_size, num_proposals, hidden_size
             features_cross = self.fc1(features)  # batch_size, num_proposals, hidden_size
-            lang_cross = data_dict["attn_value"]  # batch_size, timestep, lang_size
-            lang_cross = self.fc2(lang_cross)  # batch_size, timestep, hidden_size
+            attn_value = data_dict["attn_value"]  # batch_size, timestep, lang_size
+            lang_cross = self.fc2(attn_value)  # batch_size, timestep, hidden_size
             score = torch.bmm(features_cross, lang_cross.permute(0, 2, 1).contiguous())  # batch_size, num_proposals, timestep
             weight = nn.functional.softmax(score, dim=2)
-            value = torch.bmm(weight, lang_cross)  # batch_size, num_proposals, hidden_size
-            value = torch.cat([features_cross, value], dim=-1)  # batch_size, num_proposals, hidden_size*2
+            value = torch.bmm(weight, attn_value)  # batch_size, num_proposals, hidden_size
+            #value = torch.cat([features_cross, value], dim=-1)  # batch_size, num_proposals, hidden_size*2
             value = value.permute(0, 2, 1).contiguous()  # batch_size, hidden_size*2, num_proposals
-            value = self.fuse2(value)  # batch_size, hidden_size, num_proposals
+            #value = self.fuse2(value)  # batch_size, hidden_size, num_proposals
             # match
             confidences = self.match(value).squeeze(1)  # batch_size, num_proposals
 
