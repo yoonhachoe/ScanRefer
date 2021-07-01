@@ -52,11 +52,13 @@ class LangModule(nn.Module):
             feats = feats[unsorted_idx]
             # self attention
             attn_weight = self.attention(feats) # batch, timestep, timestep
+            _, T, _ = attn_weight.size()
             attn_value = torch.bmm(attn_weight, feats)  # B, T, H
-            lang_last,_ = torch.max(attn_value, 1)  # B, H
-            #lang_last = torch.sum(attn_value, dim=1) # B, H
-            #data_dict["attn_weight"] = attn_weight
-            data_dict["attn_value"] = attn_value
+            #lang_last,_ = torch.max(attn_value, 1)  # B, H
+            lang_last = torch.sum(attn_value, dim=1) # B, H
+            data_dict["attn_value"] = attn_value # B, T, H
+            data_dict["attn_weight"] = attn_weight # B, T, T
+            data_dict["attn_weight"] = torch.sum(data_dict["attn_weight"], dim=1)/T # B, T
 
         else:
             lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
