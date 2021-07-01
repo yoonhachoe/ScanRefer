@@ -28,11 +28,6 @@ class MatchModule(nn.Module):
             nn.ReLU()
         )
 
-        self.fuse2 = nn.Sequential(
-            nn.Conv1d(self.hidden_size*2, self.hidden_size, 1),
-            nn.ReLU()
-        )
-
         self.fc1 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc2 = nn.Linear(self.lang_size, self.hidden_size)
 
@@ -111,10 +106,10 @@ class MatchModule(nn.Module):
             lang_cross = self.fc2(attn_value)  # batch_size, timestep, hidden_size
             score = torch.bmm(features_cross, lang_cross.permute(0, 2, 1).contiguous())  # batch_size, num_proposals, timestep
             weight = nn.functional.softmax(score, dim=2)
-            value = torch.bmm(weight, attn_value)  # batch_size, num_proposals, hidden_size
-            #value = torch.cat([features_cross, value], dim=-1)  # batch_size, num_proposals, hidden_size*2
-            value = value.permute(0, 2, 1).contiguous()  # batch_size, hidden_size*2, num_proposals
-            #value = self.fuse2(value)  # batch_size, hidden_size, num_proposals
+            value = torch.bmm(weight, attn_value)  # batch_size, num_proposals, lang_size
+            value = torch.cat([features_cross, value], dim=-1)  # batch_size, num_proposals, hidden_size+lang_size
+            value = value.permute(0, 2, 1).contiguous()  # batch_size, hidden_size+lang_size, num_proposals
+            value = self.fuse(value)  # batch_size, hidden_size, num_proposals
             # match
             confidences = self.match(value).squeeze(1)  # batch_size, num_proposals
 
