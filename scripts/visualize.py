@@ -409,6 +409,16 @@ def dump_results(args, scanrefer, data, config):
 
         write_bbox(pred_obb, 1, os.path.join(scene_dump_dir, 'pred_{}_{}_{}_{:.5f}_{:.5f}.ply'.format(object_id, object_name, ann_id, pred_ref_scores_softmax[i, pred_ref_idx], iou)))
 
+def colorize(words, color_array):
+    cmap=matplotlib.cm.Blues
+    template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
+    colored_string = ''
+    for word, color in zip(words, color_array):
+        color = matplotlib.colors.rgb2hex(cmap(color)[:3])
+        print(color)
+        colored_string += template.format(color, '&nbsp' + word + '&nbsp')
+    return colored_string
+
 def visualize(args):
     # init training dataset
     print("preparing data...")
@@ -457,6 +467,21 @@ def visualize(args):
         # visualize
         dump_results(args, scanrefer, data, DC)
 
+    print("done!")
+
+    print("visualizing attention weights...")
+    for data in tqdm(dataloader):
+        for key in data:
+            data[key] = data[key].cuda()
+        with torch.no_grad():
+            data = model.lang(data)
+            words = data["token"]
+            color_array = data_dict["attn_weight"]
+            s = colorize(words, color_array)
+
+        # save in an html file and open in browser
+        with open(os.path.join('outputs', args.folder,'colorize.html', 'a') as f:
+            f.write(s)
     print("done!")
 
 
