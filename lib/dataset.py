@@ -63,7 +63,7 @@ class ScannetReferenceDataset(Dataset):
         object_id = int(self.scanrefer[idx]["object_id"])
         object_name = " ".join(self.scanrefer[idx]["object_name"].split("_"))
         ann_id = self.scanrefer[idx]["ann_id"]
-        token = self.scanrefer[idx]["token"]
+        token_list = self.scanrefer[idx]["token"]
         
         # get language features
         lang_feat = self.lang[scene_id][str(object_id)][ann_id]
@@ -236,7 +236,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(np.float32)
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
         data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
-        data_dict["token"] = np.array(str(token))
+        data_dict["token"] = np.array(str(token_list))
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
         data_dict["unique_multiple"] = np.array(self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
