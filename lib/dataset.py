@@ -236,14 +236,14 @@ class ScannetReferenceDataset(Dataset):
         data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(np.float32)
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
         data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
-        data_dict["token"] = np.array(token).astype(np.str)
+        data_dict["token"] = token
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
         data_dict["unique_multiple"] = np.array(self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
         data_dict["load_time"] = time.time() - start
 
         return data_dict
-    
+
     def _get_raw2label(self):
         # mapping
         scannet_labels = DC.type2class.keys()
@@ -398,7 +398,7 @@ class ScannetReferenceDataset(Dataset):
         y_factor = np.random.choice(np.arange(-0.5, 0.501, 0.001), size=1)[0]
         z_factor = np.random.choice(np.arange(-0.5, 0.501, 0.001), size=1)[0]
         factor = [x_factor, y_factor, z_factor]
-        
+
         # dump
         coords += factor
         point_set[:, :3] = coords
