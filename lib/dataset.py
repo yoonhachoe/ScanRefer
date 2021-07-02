@@ -237,6 +237,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
         data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
         data_dict["token"] = np.array(str(token))
+        print(data_dict["token"])
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
         data_dict["unique_multiple"] = np.array(self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
