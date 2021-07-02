@@ -469,7 +469,21 @@ def visualize(args):
 
     print("done!")
 
-   
+    print("visualizing attention weights...")
+    for data in tqdm(dataloader):
+        for key in data:
+            if key != 'token':
+                data[key] = data[key].cuda()
+        with torch.no_grad():
+            data = model.lang(data)
+            words = data["token"]
+            color_array = data["attn_weight"]
+            s = colorize(words, color_array)
+
+        # save in an html file and open in browser
+        with open(os.path.join('outputs', args.folder,'attention.html'), 'a') as f:
+            f.write(s)
+    print("done!")
 
 
 if __name__ == "__main__":
