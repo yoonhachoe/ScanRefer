@@ -476,12 +476,12 @@ def visualize(args):
                 data[k] = data[k].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            words = data["token_list"]
+            words = data["token"]
             color_array = data["attn_weight"]
             s = colorize(words, color_array)
 
         # save in an html file and open in browser
-        with open(os.path.join('outputs', args.folder,'colorize.html', 'a') as f:
+        with open(os.path.join('outputs', args.folder,'attention.html'), 'a') as f:
             f.write(s)
     print("done!")
 
