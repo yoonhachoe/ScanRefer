@@ -409,6 +409,41 @@ def dump_results(args, scanrefer, data, config):
 
         write_bbox(pred_obb, 1, os.path.join(scene_dump_dir, 'pred_{}_{}_{}_{:.5f}_{:.5f}.ply'.format(object_id, object_name, ann_id, pred_ref_scores_softmax[i, pred_ref_idx], iou)))
 
+
+def dump_results(args, scanrefer, data, config):
+    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
+    os.makedirs(dump_dir, exist_ok=True)
+
+    # from inputs
+    ids = data['scan_idx'].detach().cpu().numpy()
+    point_clouds = data['point_clouds'].cpu().numpy()
+    batch_size = point_clouds.shape[0]
+
+    for i in range(batch_size):
+        # basic info
+        idx = ids[i]
+        scene_id = scanrefer[idx]["scene_id"]
+        object_id = scanrefer[idx]["object_id"]
+        object_name = scanrefer[idx]["object_name"]
+        ann_id = scanrefer[idx]["ann_id"]
+        token = scanrefer[idx]["token"]
+
+        # scene_output
+        scene_dump_dir = os.path.join(dump_dir, scene_id)
+
+        cmap = matplotlib.cm.Blues
+        template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
+        colored_string = ''
+        for word, color in zip(token, data["attn_weight"]):
+            color = matplotlib.colors.rgb2hex(cmap(color)[:3])
+            print(color)
+            colored_string += template.format(color, '&nbsp' + word + '&nbsp')
+
+        # save in an html file and open in browser
+        with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
+            f.write(colored_string)
+
+
 def colorize(words, color_array):
     cmap=matplotlib.cm.Blues
     template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
@@ -476,9 +511,7 @@ def visualize(args):
                 data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            words = data["token"]
-            color_array = data["attn_weight"]
-            s = colorize(words, color_array)
+            colorize(args, scanrefer, data, DC)
 
         # save in an html file and open in browser
         with open(os.path.join('outputs', args.folder,'attention.html'), 'a') as f:
