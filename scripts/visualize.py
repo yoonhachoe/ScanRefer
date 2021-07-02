@@ -476,7 +476,7 @@ def visualize(args):
         with torch.no_grad():
             data = model.lang(data)
             words = data["token"]
-            color_array = data_dict["attn_weight"]
+            color_array = data["attn_weight"]
             s = colorize(words, color_array)
 
         # save in an html file and open in browser
