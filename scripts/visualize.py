@@ -476,7 +476,7 @@ def visualize(args):
                 data[k] = data[k].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            words = data["token"]
+            words = data["token_list"]
             color_array = data["attn_weight"]
             s = colorize(words, color_array)
 
