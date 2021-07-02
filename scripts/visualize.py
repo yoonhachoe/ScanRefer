@@ -471,8 +471,9 @@ def visualize(args):
 
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
-        for key in data:
-            data[key] = data[key].cuda()
+        for k in data:
+            if k != 'token':
+                data[k] = data[k].cuda()
         with torch.no_grad():
             data = model.lang(data)
             words = data["token"]
