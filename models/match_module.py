@@ -66,9 +66,9 @@ class MatchModule(nn.Module):
             # mask out invalid proposals
             objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
             features = features * objectness_masks  # batch_size, 128 + lang_size, num_proposals
-            #skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
-            #features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
-            features = self.graph(features) # batch_size, hidden_size, num_proposals
+            skipfeatures = self.skip(features)  # batch_size, hidden_size, num_proposals
+            features = self.graph(features) + skipfeatures  # batch_size, hidden_size, num_proposals
+            #features = self.graph(features) # batch_size, hidden_size, num_proposals
 
         #if self.use_dgcnn:
         #    features = features.permute(0, 2, 1).contiguous()  # batch_size, 128, num_proposals
