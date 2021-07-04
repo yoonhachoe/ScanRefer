@@ -494,7 +494,6 @@ def visualize(args):
         dump_results(args, scanrefer, data, DC)
 
     print("done!")
-    model = get_model(args, DC)
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
         for key in data:
