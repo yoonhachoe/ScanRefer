@@ -114,7 +114,6 @@ def colorize(args, scanrefer, data, config):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
 
-        colored_string += """</br></br>"""
     return colored_string
 
 def visualize_attn(args):
