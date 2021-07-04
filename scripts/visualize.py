@@ -429,7 +429,8 @@ def colorize(args, scanrefer, data, config):
         object_name = scanrefer[idx]["object_name"]
         ann_id = scanrefer[idx]["ann_id"]
         token = scanrefer[idx]["token"]
-
+        print(token)
+        print(data["attn_weight"])
         # scene_output
         scene_dump_dir = os.path.join(dump_dir, scene_id)
 
@@ -493,7 +494,7 @@ def visualize(args):
         dump_results(args, scanrefer, data, DC)
 
     print("done!")
-
+    model = get_model(args, DC)
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
         for key in data:
