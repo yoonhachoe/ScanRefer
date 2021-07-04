@@ -14,8 +14,6 @@ from datetime import datetime
 from tqdm import tqdm
 from shutil import copyfile
 from plyfile import PlyData, PlyElement
-import matplotlib
-import matplotlib.pyplot as plt
 
 sys.path.append(os.path.join(os.getcwd())) # HACK add the root folder
 from utils.pc_utils import write_ply_rgb, write_oriented_bbox
@@ -411,44 +409,6 @@ def dump_results(args, scanrefer, data, config):
 
         write_bbox(pred_obb, 1, os.path.join(scene_dump_dir, 'pred_{}_{}_{}_{:.5f}_{:.5f}.ply'.format(object_id, object_name, ann_id, pred_ref_scores_softmax[i, pred_ref_idx], iou)))
 
-
-def colorize(args, scanrefer, data, config):
-    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
-    os.makedirs(dump_dir, exist_ok=True)
-
-    # from inputs
-    ids = data['scan_idx'].detach().cpu().numpy()
-    point_clouds = data['point_clouds'].cpu().numpy()
-    batch_size = point_clouds.shape[0]
-    data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
-
-    for i in range(batch_size):
-        # basic info
-        idx = ids[i]
-        scene_id = scanrefer[idx]["scene_id"]
-        object_id = scanrefer[idx]["object_id"]
-        object_name = scanrefer[idx]["object_name"]
-        ann_id = scanrefer[idx]["ann_id"]
-        token = scanrefer[idx]["token"]
-        print(token)
-        print(data["attn_weight"].size())
-        print(data["attn_weight"][i])
-        print(data["attn_weight"][i].size())
-        # scene_output
-        scene_dump_dir = os.path.join(dump_dir, scene_id)
-
-        cmap = matplotlib.cm.Blues
-        template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-        colored_string = ''
-        for word, color in zip(token, data["attn_weight"][i].tolist()):
-            color = matplotlib.colors.rgb2hex(cmap(color)[:3])
-            colored_string += template.format(color, '&nbsp' + word + '&nbsp')
-        colored_string += """</br>"""
-
-        # save in an html file and open in browser
-        with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
-            f.write(colored_string)
-
 def visualize(args):
     # init training dataset
     print("preparing data...")
@@ -496,15 +456,6 @@ def visualize(args):
         
         # visualize
         dump_results(args, scanrefer, data, DC)
-
-    print("done!")
-    print("visualizing attention weights...")
-    for data in tqdm(dataloader):
-        for key in data:
-            data[key] = data[key].cuda()
-        with torch.no_grad():
-            data = model.lang(data)
-            colorize(args, scanrefer, data, DC)
 
     print("done!")
 
