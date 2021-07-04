@@ -443,6 +443,7 @@ def colorize(args, scanrefer, data, config):
         for word, color in zip(token, data["attn_weight"][i].tolist()):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
+            colored_string += """</br>"""
 
         # save in an html file and open in browser
         with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
