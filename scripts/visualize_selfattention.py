@@ -114,7 +114,6 @@ def colorize(args, scanrefer, data, config):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
 
-    return colored_string
 
 def visualize_attn(args):
     dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis", args.scene_id)
@@ -129,17 +128,12 @@ def visualize_attn(args):
     # model
     model = get_model(args)
 
-    # config
-    POST_DICT = {
-        'remove_empty_box': True, 
-        'use_3d_nms': True, 
-        'nms_iou': 0.25,
-        'use_old_type_nms': False, 
-        'cls_nms': True, 
-        'per_class_proposal': True,
-        'conf_thresh': 0.05,
-        'dataset_config': DC
-    } if not args.no_nms else None
+    # from inputs
+    ids = data['scan_idx'].detach().cpu().numpy()
+    point_clouds = data['point_clouds'].cpu().numpy()
+    batch_size = point_clouds.shape[0]
+    data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
+
 
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
@@ -147,10 +141,26 @@ def visualize_attn(args):
             data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            colored_string = colorize(args, scanrefer, data, DC)
-            # save in an html file and open in browser
-            with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
-                f.write(colored_string)
+            colored_string = ''
+            for i in range(batch_size):
+                # basic info
+                idx = ids[i]
+                token = scanrefer[idx]["token"]
+                print(token)
+                print(data["attn_weight"].size())
+                print(data["attn_weight"][i])
+                print(data["attn_weight"][i].size())
+
+                cmap = matplotlib.cm.Blues
+                template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
+
+                for word, color in zip(token, data["attn_weight"][i].tolist()):
+                    color = matplotlib.colors.rgb2hex(cmap(color)[:3])
+                    colored_string += template.format(color, '&nbsp' + word + '&nbsp')
+                colored_string += """</br></br>"""
+        # save in an html file and open in browser
+        with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
+            f.write(colored_string)
 
 
     print("done!")
