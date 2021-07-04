@@ -14,6 +14,8 @@ from datetime import datetime
 from tqdm import tqdm
 from shutil import copyfile
 from plyfile import PlyData, PlyElement
+import matplotlib
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.join(os.getcwd())) # HACK add the root folder
 from utils.pc_utils import write_ply_rgb, write_oriented_bbox
