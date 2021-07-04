@@ -109,11 +109,12 @@ def colorize(args, scanrefer, data, config):
 
         cmap = matplotlib.cm.Blues
         template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-        
+
         for word, color in zip(token, data["attn_weight"][i].tolist()):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
-        colored_string += """</br>"""
+
+        colored_string += """</br></br>"""
     return colored_string
 
 def visualize_attn(args):
@@ -151,7 +152,7 @@ def visualize_attn(args):
             # save in an html file and open in browser
             with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
                 f.write(colored_string)
-        
+
 
     print("done!")
 
