@@ -128,19 +128,21 @@ def visualize_attn(args):
     # model
     model = get_model(args)
 
-    # from inputs
-    ids = data['scan_idx'].detach().cpu().numpy()
-    point_clouds = data['point_clouds'].cpu().numpy()
-    batch_size = point_clouds.shape[0]
-    data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
+
 
 
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
+
         for key in data:
             data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
+            # from inputs
+            ids = data['scan_idx'].detach().cpu().numpy()
+            point_clouds = data['point_clouds'].cpu().numpy()
+            batch_size = point_clouds.shape[0]
+            data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
             colored_string = ''
             for i in range(batch_size):
                 # basic info
