@@ -430,6 +430,7 @@ def colorize(args, scanrefer, data, config):
         ann_id = scanrefer[idx]["ann_id"]
         token = scanrefer[idx]["token"]
         print(token)
+        data_dict["attn_weight"] = torch.sum(data_dict["attn_weight"], dim=1)/T # B, T
         print(data["attn_weight"])
         # scene_output
         scene_dump_dir = os.path.join(dump_dir, scene_id)
@@ -437,7 +438,7 @@ def colorize(args, scanrefer, data, config):
         cmap = matplotlib.cm.Blues
         template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
         colored_string = ''
-        for word, color in zip(token, data["attn_weight"].cpu()):
+        for word, color in zip(token, data["attn_weight"][i].cpu()):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
 
