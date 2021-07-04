@@ -420,6 +420,7 @@ def colorize(args, scanrefer, data, config):
     ids = data['scan_idx'].detach().cpu().numpy()
     point_clouds = data['point_clouds'].cpu().numpy()
     batch_size = point_clouds.shape[0]
+    data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
 
     for i in range(batch_size):
         # basic info
@@ -430,7 +431,6 @@ def colorize(args, scanrefer, data, config):
         ann_id = scanrefer[idx]["ann_id"]
         token = scanrefer[idx]["token"]
         print(token)
-        data["attn_weight"] = torch.sum(data["attn_weight"], dim=1) # B, T
         print(data["attn_weight"].size())
         print(data["attn_weight"][i])
         print(data["attn_weight"][i].size())
