@@ -24,7 +24,7 @@ CONF.PATH.SCANNET_DATA = os.path.join(CONF.PATH.SCANNET, "scannet_data")
 
 # data
 CONF.SCANNET_DIR =  "/home/adl4cv/yoonha/ScanRefer/data/scannet/scans" # TODO change this
-CONF.SCANNET_FRAMES_ROOT = "/home/davech2y/frames_square/" # TODO change this
+CONF.SCANNET_FRAMES_ROOT = "/home/adl4cv/yoonha/ScanRefer/frames_square/" # TODO change this
 CONF.PROJECTION = "/home/davech2y/multiview_projection_scanrefer" # TODO change this
 CONF.ENET_FEATURES_ROOT = "/home/davech2y/enet_features" # TODO change this
 CONF.ENET_FEATURES_SUBROOT = os.path.join(CONF.ENET_FEATURES_ROOT, "{}") # scene_id
