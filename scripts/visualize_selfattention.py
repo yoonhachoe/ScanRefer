@@ -88,9 +88,6 @@ def get_scanrefer(args):
     return scanrefer, scene_list
 
 def colorize(args, scanrefer, data, config):
-    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
-    os.makedirs(dump_dir, exist_ok=True)
-
     # from inputs
     ids = data['scan_idx'].detach().cpu().numpy()
     point_clouds = data['point_clouds'].cpu().numpy()
@@ -109,8 +106,6 @@ def colorize(args, scanrefer, data, config):
         print(data["attn_weight"].size())
         print(data["attn_weight"][i])
         print(data["attn_weight"][i].size())
-        # scene_output
-        scene_dump_dir = os.path.join(dump_dir, scene_id)
 
         cmap = matplotlib.cm.Blues
         template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
@@ -119,12 +114,10 @@ def colorize(args, scanrefer, data, config):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
         colored_string += """</br>"""
-    # save in an html file and open in browser
-    with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
-        f.write(colored_string)
+    return colored_string
 
 def visualize(args):
-    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
+    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis", args.scene_id)
     os.makedirs(dump_dir, exist_ok=True)
     # init training dataset
     print("preparing data...")
@@ -154,7 +147,11 @@ def visualize(args):
             data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            colorize(args, scanrefer, data, DC)
+            colored_string = colorize(args, scanrefer, data, DC)
+
+        # save in an html file and open in browser
+        with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
+            f.write(colored_string)
 
     print("done!")
 
