@@ -430,7 +430,7 @@ def colorize(args, scanrefer, data, config):
         ann_id = scanrefer[idx]["ann_id"]
         token = scanrefer[idx]["token"]
         print(token)
-        data_dict["attn_weight"] = torch.sum(data_dict["attn_weight"], dim=1)/T # B, T
+        data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)/T # B, T
         print(data["attn_weight"])
         # scene_output
         scene_dump_dir = os.path.join(dump_dir, scene_id)
