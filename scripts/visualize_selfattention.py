@@ -87,34 +87,6 @@ def get_scanrefer(args):
 
     return scanrefer, scene_list
 
-def colorize(args, scanrefer, data, config):
-    # from inputs
-    ids = data['scan_idx'].detach().cpu().numpy()
-    point_clouds = data['point_clouds'].cpu().numpy()
-    batch_size = point_clouds.shape[0]
-    data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
-    colored_string = ''
-    for i in range(batch_size):
-        # basic info
-        idx = ids[i]
-        scene_id = scanrefer[idx]["scene_id"]
-        object_id = scanrefer[idx]["object_id"]
-        object_name = scanrefer[idx]["object_name"]
-        ann_id = scanrefer[idx]["ann_id"]
-        token = scanrefer[idx]["token"]
-        print(token)
-        print(data["attn_weight"].size())
-        print(data["attn_weight"][i])
-        print(data["attn_weight"][i].size())
-
-        cmap = matplotlib.cm.Blues
-        template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-
-        for word, color in zip(token, data["attn_weight"][i].tolist()):
-            color = matplotlib.colors.rgb2hex(cmap(color)[:3])
-            colored_string += template.format(color, '&nbsp' + word + '&nbsp')
-
-
 def visualize_attn(args):
     dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis", args.scene_id)
     os.makedirs(dump_dir, exist_ok=True)
@@ -128,12 +100,8 @@ def visualize_attn(args):
     # model
     model = get_model(args)
 
-
-
-
     print("visualizing attention weights...")
     for data in tqdm(dataloader):
-
         for key in data:
             data[key] = data[key].cuda()
         with torch.no_grad():
@@ -142,29 +110,20 @@ def visualize_attn(args):
             ids = data['scan_idx'].detach().cpu().numpy()
             point_clouds = data['point_clouds'].cpu().numpy()
             batch_size = point_clouds.shape[0]
-            data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
             colored_string = ''
             for i in range(batch_size):
                 # basic info
                 idx = ids[i]
                 token = scanrefer[idx]["token"]
-                print(token)
-                print(data["attn_weight"].size())
-                print(data["attn_weight"][i])
-                print(data["attn_weight"][i].size())
-
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-
                 for word, color in zip(token, data["attn_weight"][i].tolist()):
                     color = matplotlib.colors.rgb2hex(cmap(color)[:3])
                     colored_string += template.format(color, '&nbsp' + word + '&nbsp')
-                colored_string += """</br></br>"""
+                colored_string += """</br>"""
         # save in an html file and open in browser
         with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
             f.write(colored_string)
-
-
     print("done!")
 
 
