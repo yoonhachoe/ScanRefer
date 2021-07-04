@@ -438,7 +438,7 @@ def colorize(args, scanrefer, data, config):
         cmap = matplotlib.cm.Blues
         template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
         colored_string = ''
-        for word, color in zip(token, data["attn_weight"][i].cpu()):
+        for word, color in zip(token, data["attn_weight"][i].tolist()):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
 
