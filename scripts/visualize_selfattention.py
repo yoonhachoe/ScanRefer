@@ -119,10 +119,13 @@ def colorize(args, scanrefer, data, config):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
         colored_string += """</br>"""
-
-    return colored_string
+    # save in an html file and open in browser
+    with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
+        f.write(colored_string)
 
 def visualize(args):
+    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
+    os.makedirs(dump_dir, exist_ok=True)
     # init training dataset
     print("preparing data...")
     scanrefer, scene_list = get_scanrefer(args)
@@ -151,11 +154,7 @@ def visualize(args):
             data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            colored_string = colorize(args, scanrefer, data, DC)
-
-        # save in an html file and open in browser
-        with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
-                f.write(colored_string)
+            colorize(args, scanrefer, data, DC)
 
     print("done!")
 
