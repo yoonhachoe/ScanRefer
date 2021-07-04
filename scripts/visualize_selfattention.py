@@ -120,9 +120,7 @@ def colorize(args, scanrefer, data, config):
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
         colored_string += """</br>"""
 
-        # save in an html file and open in browser
-        with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
-            f.write(colored_string)
+    return colored_string
 
 def visualize(args):
     # init training dataset
@@ -153,7 +151,11 @@ def visualize(args):
             data[key] = data[key].cuda()
         with torch.no_grad():
             data = model.lang(data)
-            colorize(args, scanrefer, data, DC)
+            colored_string = colorize(args, scanrefer, data, DC)
+
+        # save in an html file and open in browser
+        with open(os.path.join(scene_dump_dir, 'attention.html'), 'a') as f:
+                f.write(colored_string)
 
     print("done!")
 
