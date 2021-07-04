@@ -93,7 +93,7 @@ def colorize(args, scanrefer, data, config):
     point_clouds = data['point_clouds'].cpu().numpy()
     batch_size = point_clouds.shape[0]
     data["attn_weight"] = torch.sum(data["attn_weight"], dim=1)  # B, T
-
+    colored_string = ''
     for i in range(batch_size):
         # basic info
         idx = ids[i]
@@ -109,14 +109,14 @@ def colorize(args, scanrefer, data, config):
 
         cmap = matplotlib.cm.Blues
         template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-        colored_string = ''
+        
         for word, color in zip(token, data["attn_weight"][i].tolist()):
             color = matplotlib.colors.rgb2hex(cmap(color)[:3])
             colored_string += template.format(color, '&nbsp' + word + '&nbsp')
         colored_string += """</br>"""
     return colored_string
 
-def visualize(args):
+def visualize_attn(args):
     dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis", args.scene_id)
     os.makedirs(dump_dir, exist_ok=True)
     # init training dataset
@@ -148,10 +148,10 @@ def visualize(args):
         with torch.no_grad():
             data = model.lang(data)
             colored_string = colorize(args, scanrefer, data, DC)
-
-        # save in an html file and open in browser
-        with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
-            f.write(colored_string)
+            # save in an html file and open in browser
+            with open(os.path.join(dump_dir, 'attention.html'), 'a') as f:
+                f.write(colored_string)
+        
 
     print("done!")
 
@@ -177,4 +177,4 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
-    visualize(args)
+    visualize_attn(args)
