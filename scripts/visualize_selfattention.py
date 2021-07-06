@@ -121,7 +121,8 @@ def visualize_attn(args):
                 token = scanrefer[idx]["token"]
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-                for word, color in zip(token, data["attn_weight"][i].tolist()):
+                _, T = data["attn_weight"][i].size()
+                for word, color in zip(token, data["attn_weight"][i]*T.tolist()):
                     color = matplotlib.colors.rgb2hex(cmap(color)[:3])
                     colored_string += template.format(color, '&nbsp' + word + '&nbsp')
                 colored_string += """</br>"""
