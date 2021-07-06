@@ -122,7 +122,7 @@ def visualize_attn(args):
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
                 T = data["attn_weight"][i].size()
-                data["attn_weight"][i] = data["attn_weight"][i] * T
+                data["attn_weight"][i] = data["attn_weight"][i] * 10
                 for word, color in zip(token, data["attn_weight"][i].tolist()):
                     color = matplotlib.colors.rgb2hex(cmap(color)[:3])
                     colored_string += template.format(color, '&nbsp' + word + '&nbsp')
