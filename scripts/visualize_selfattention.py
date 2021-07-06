@@ -65,13 +65,8 @@ def get_model(args):
         num_size_cluster=DC.num_size_cluster,
         mean_size_arr=DC.mean_size_arr,
         num_proposal=args.num_proposals,
-        input_feature_dim=input_channels,
-        use_brnet=args.use_brnet,
-        use_self_attn=args.use_self_attn,
-        use_cross_attn=args.use_cross_attn,
-        use_dgcnn=args.use_dgcnn
+        input_feature_dim=input_channels
     ).cuda()
-
 
     path = os.path.join(CONF.PATH.OUTPUT, args.folder, "model.pth")
     model.load_state_dict(torch.load(path), strict=False)
@@ -120,9 +115,11 @@ def visualize_attn(args):
                 # basic info
                 idx = ids[i]
                 token = scanrefer[idx]["token"]
+                norm_attention = ((data["attn_weight"][i] - torch.min(data["attn_weight"][i])) / (
+                        torch.max(data["attn_weight"][i]) - torch.min(data["attn_weight"][i]))).tolist()
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-                for word, color in zip(token, data["attn_weight"][i].tolist()):
+                for word, color in zip(token, norm_attention):
                     color = matplotlib.colors.rgb2hex(cmap(color)[:3])
                     colored_string += template.format(color, '&nbsp' + word + '&nbsp')
                 colored_string += """</br>"""
@@ -147,11 +144,6 @@ if __name__ == "__main__":
     parser.add_argument('--use_color', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_normal', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_multiview', action='store_true', help='Use multiview images.')
-    parser.add_argument("--use_brnet", action="store_true", help="Use BRNet for object detection.")
-    parser.add_argument("--use_self_attn", action="store_true", help="Use self attention for lang features.")
-    parser.add_argument("--use_cross_attn", action="store_true", help="Use cross attention with visual and lang features.")
-    parser.add_argument("--use_dgcnn", action="store_true", help="Use DGCNN for visual features.")
-    parser.add_argument("--fuse_before", action="store_true", help="Fuse before DGCNN.")
     args = parser.parse_args()
 
     # setting
