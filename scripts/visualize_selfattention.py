@@ -147,6 +147,11 @@ if __name__ == "__main__":
     parser.add_argument('--use_color', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_normal', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_multiview', action='store_true', help='Use multiview images.')
+    parser.add_argument("--use_brnet", action="store_true", help="Use BRNet for object detection.")
+    parser.add_argument("--use_self_attn", action="store_true", help="Use self attention for lang features.")
+    parser.add_argument("--use_cross_attn", action="store_true", help="Use cross attention with visual and lang features.")
+    parser.add_argument("--use_dgcnn", action="store_true", help="Use DGCNN for visual features.")
+    parser.add_argument("--fuse_before", action="store_true", help="Fuse before DGCNN.")
     args = parser.parse_args()
 
     # setting
