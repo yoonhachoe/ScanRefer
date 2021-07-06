@@ -229,3 +229,29 @@ class ScannetDatasetConfig(object):
         obb[:, 6] = (dir_angle * -1).detach().cpu().numpy()
 
         return obb
+
+    def dist2bbox(self, distance, ref_points):
+        batch_size, num_proposal, _ = distance.shape
+
+        dir_angle = distance.new_zeros(batch_size, num_proposal, 1)
+
+        # decode bbox size
+        bbox_size = distance[..., 0:3] + distance[..., 3:6]
+        bbox_size = torch.clamp(bbox_size, min=0.1)
+
+        # decode bbox center
+        canonical_xyz = (distance[..., 3:6] -
+                         distance[..., 0:3]) / 2  # (batch_size, num_proposal, 3)
+
+        shape = canonical_xyz.shape
+
+        canonical_xyz = rotation_3d_in_axis(
+            canonical_xyz.view(-1, 3).unsqueeze(1),
+            dir_angle.view(-1),
+            axis=2
+        ).squeeze(1).view(shape)
+
+        center = ref_points - canonical_xyz
+
+        bbox3d = torch.cat([center, bbox_size, dir_angle], dim=-1)
+        return bbox3d
