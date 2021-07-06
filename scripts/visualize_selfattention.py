@@ -119,7 +119,7 @@ def visualize_attn(args):
                 # basic info
                 idx = ids[i]
                 token = scanrefer[idx]["token"]
-                attention = ((data["attn_weight"][i] - torch.min(data["attn_weight"][i])) / (torch.max(adata["attn_weight"][i]) - torch.min(adata["attn_weight"][i])))
+                attention = ((data["attn_weight"][i] - torch.min(data["attn_weight"][i])) / (torch.max(data["attn_weight"][i]) - torch.min(data["attn_weight"][i])))
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
                 for word, color in zip(token, attention.tolist()):
