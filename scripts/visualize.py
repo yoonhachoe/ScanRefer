@@ -22,9 +22,9 @@ from models.refnet import RefNet
 from data.scannet.model_util_scannet import ScannetDatasetConfig
 from lib.dataset import ScannetReferenceDataset
 from lib.solver import Solver
-from lib.ap_helper import APCalculator, parse_predictions, parse_groundtruths
-from lib.loss_helper import get_loss
-from lib.eval_helper import get_eval
+from lib.ap_helper import APCalculator, parse_predictions, parse_groundtruths, parse_predictions_brnet
+from lib.loss_helper import get_loss, loss_brnet
+from lib.eval_helper import get_eval, get_eval_brnet
 from lib.config import CONF
 
 # data
@@ -63,7 +63,11 @@ def get_model(args):
         num_size_cluster=DC.num_size_cluster,
         mean_size_arr=DC.mean_size_arr,
         num_proposal=args.num_proposals,
-        input_feature_dim=input_channels
+        input_feature_dim=input_channels,
+        use_brnet=args.use_brnet,
+        use_self_attn=args.use_self_attn,
+        use_cross_attn=args.use_cross_attn,
+        use_dgcnn=args.use_dgcnn
     ).cuda()
 
     path = os.path.join(CONF.PATH.OUTPUT, args.folder, "model.pth")
@@ -338,15 +342,17 @@ def dump_results(args, scanrefer, data, config):
     
     # from network outputs
     # detection
+    if not args.use_brnet:
+        pred_center = data['center'].detach().cpu().numpy() # (B,K,3)
+        pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+        pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+        pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+
     pred_objectness = torch.argmax(data['objectness_scores'], 2).float().detach().cpu().numpy()
-    pred_center = data['center'].detach().cpu().numpy() # (B,K,3)
     pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
     pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
     pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
     pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
     # reference
     pred_ref_scores = data["cluster_ref"].detach().cpu().numpy()
     pred_ref_scores_softmax = F.softmax(data["cluster_ref"] * torch.argmax(data['objectness_scores'], 2).float() * data['pred_mask'], dim=1).detach().cpu().numpy()
@@ -397,13 +403,18 @@ def dump_results(args, scanrefer, data, config):
         
         # find the valid reference prediction
         pred_masks = nms_masks[i] * pred_objectness[i] == 1
-        assert pred_ref_scores[i].shape[0] == pred_center[i].shape[0]
+        if not args.use_brnet:
+            assert pred_ref_scores[i].shape[0] == pred_center[i].shape[0]
         pred_ref_idx = np.argmax(pred_ref_scores[i] * pred_masks, 0)
         assigned_gt = torch.gather(data["ref_box_label"], 1, data["object_assignment"]).detach().cpu().numpy()
 
         # visualize the predicted reference box
-        pred_obb = config.param2obb(pred_center[i, pred_ref_idx, 0:3], pred_heading_class[i, pred_ref_idx], pred_heading_residual[i, pred_ref_idx],
+        if not args.use_brnet:
+            pred_obb = config.param2obb(pred_center[i, pred_ref_idx, 0:3], pred_heading_class[i, pred_ref_idx], pred_heading_residual[i, pred_ref_idx],
                 pred_size_class[i, pred_ref_idx], pred_size_residual[i, pred_ref_idx])
+        else:
+            pred_obb = config.dist2obb(data['refined_distance'][i, pred_ref_idx, 0:6],
+                                       data['aggregated_vote_xyz'][i, pred_ref_idx, 0:3])
         pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
         iou = box3d_iou(gt_bbox, pred_bbox)
 
@@ -441,18 +452,33 @@ def visualize(args):
         # feed
         data = model(data)
         # _, data = get_loss(data, DC, True, True, POST_DICT)
-        _, data = get_loss(
-            data_dict=data, 
-            config=DC, 
-            detection=True,
-            reference=True
-        )
-        data = get_eval(
-            data_dict=data, 
-            config=DC,
-            reference=True, 
-            post_processing=POST_DICT
-        )
+
+        if not args.use_brnet:
+            _, data = get_loss(
+                data_dict=data, 
+                config=DC, 
+                detection=True,
+                reference=True
+            )
+            data = get_eval(
+                data_dict=data, 
+                config=DC,
+                reference=True, 
+                post_processing=POST_DICT
+            )
+        else:
+            _, data = loss_brnet(
+                data_dict=data, 
+                config=DC, 
+                detection=True,
+                reference=True
+            )
+            data = get_eval_brnet(
+                data_dict=data, 
+                config=DC,
+                reference=True, 
+                post_processing=POST_DICT
+            )
         
         # visualize
         dump_results(args, scanrefer, data, DC)
@@ -475,6 +501,11 @@ if __name__ == "__main__":
     parser.add_argument('--use_color', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_normal', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_multiview', action='store_true', help='Use multiview images.')
+    parser.add_argument("--use_brnet", action="store_true", help="Use BRNet for object detection.")
+    parser.add_argument("--use_self_attn", action="store_true", help="Use self attention for lang features.")
+    parser.add_argument("--use_cross_attn", action="store_true", help="Use cross attention with visual and lang features.")
+    parser.add_argument("--use_dgcnn", action="store_true", help="Use DGCNN for visual features.")
+    parser.add_argument("--fuse_before", action="store_true", help="Fuse before DGCNN.")
     args = parser.parse_args()
 
     # setting
