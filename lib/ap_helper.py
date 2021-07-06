@@ -192,7 +192,9 @@ def parse_predictions_brnet(end_points, config_dict):
             where pred_list_i = [(pred_sem_cls, box_params, box_score)_j]
             where j = 0, ..., num of valid detections - 1 from sample input i
     """
-    pred_center = end_points['center'] # B,num_proposal,3
+    bboxes = config_dict['dataset_config'].dist2bbox(end_points['refined_distance'],
+                                                     end_points['aggregated_vote_xyz'])
+    pred_center = bboxes[:,:,0:3] # B,num_proposal,3
     pred_heading_class = torch.argmax(end_points['heading_scores'], -1) # B,num_proposal
     pred_heading_residual = torch.gather(end_points['heading_residuals'], 2,
         pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
@@ -214,8 +216,8 @@ def parse_predictions_brnet(end_points, config_dict):
     pred_center_upright_camera = pred_center.detach().cpu().numpy()
     for i in range(bsize):
         for j in range(num_proposal):
-            heading_angle = end_points['dir_angle'][i, j].detach().cpu().numpy()
-            box_size = end_points['bbox_size'][i, j].detach().cpu().numpy()
+            heading_angle = bboxes[:,:,6][i, j].detach().cpu().numpy()
+            box_size = bboxes[:,:,3:6][i, j].detach().cpu().numpy()
             corners_3d_upright_camera = get_3d_box(box_size, heading_angle, pred_center_upright_camera[i,j,:])
             pred_corners_3d_upright_camera[i,j] = corners_3d_upright_camera
 
