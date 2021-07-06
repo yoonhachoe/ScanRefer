@@ -65,8 +65,13 @@ def get_model(args):
         num_size_cluster=DC.num_size_cluster,
         mean_size_arr=DC.mean_size_arr,
         num_proposal=args.num_proposals,
-        input_feature_dim=input_channels
+        input_feature_dim=input_channels,
+        use_brnet=args.use_brnet,
+        use_self_attn=args.use_self_attn,
+        use_cross_attn=args.use_cross_attn,
+        use_dgcnn=args.use_dgcnn
     ).cuda()
+
 
     path = os.path.join(CONF.PATH.OUTPUT, args.folder, "model.pth")
     model.load_state_dict(torch.load(path), strict=False)
