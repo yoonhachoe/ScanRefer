@@ -58,7 +58,7 @@ class LangModule(nn.Module):
             lang_last = torch.sum(attn_value, dim=1) # B, H
             data_dict["attn_value"] = attn_value # B, T, H
             data_dict["attn_weight"] = attn_weight # B, T, T
-            data_dict["attn_weight"] = torch.sum(data_dict["attn_weight"], dim=1)/T # B, T
+            data_dict["attn_weight"] = torch.sum(data_dict["attn_weight"], dim=1) # B, T
 
         else:
             lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
