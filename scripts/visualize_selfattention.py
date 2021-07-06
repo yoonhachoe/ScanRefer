@@ -92,7 +92,7 @@ def get_scanrefer(args):
     return scanrefer, scene_list
 
 def visualize_attn(args):
-    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis", args.scene_id)
+    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "attn", args.scene_id)
     os.makedirs(dump_dir, exist_ok=True)
     # init training dataset
     print("preparing data...")
@@ -119,11 +119,9 @@ def visualize_attn(args):
                 # basic info
                 idx = ids[i]
                 token = scanrefer[idx]["token"]
-                norm_attention = ((data["attn_weight"][i] - torch.min(data["attn_weight"][i])) / (
-                        torch.max(data["attn_weight"][i]) - torch.min(data["attn_weight"][i]))).tolist()
                 cmap = matplotlib.cm.Blues
                 template = '<span class="barcode"; style="color: black; background-color: {}">{}</span>'
-                for word, color in zip(token, norm_attention):
+                for word, color in zip(token, data["attn_weight"][i].tolist()):
                     color = matplotlib.colors.rgb2hex(cmap(color)[:3])
                     colored_string += template.format(color, '&nbsp' + word + '&nbsp')
                 colored_string += """</br>"""
