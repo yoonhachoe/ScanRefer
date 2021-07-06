@@ -270,9 +270,34 @@ def get_eval_brnet(data_dict, config, reference, use_lang_classifier=False, use_
     data_dict["ref_acc"] = ref_acc.cpu().numpy().tolist()
 
     # compute localization metrics
-    pred_ref = torch.argmax(data_dict['cluster_ref'] * pred_masks, 1) # (B,)
-    # store the calibrated predictions and masks
-    data_dict['cluster_ref'] = data_dict['cluster_ref'] * pred_masks
+
+    if use_best:
+        pred_ref = torch.argmax(data_dict["cluster_labels"], 1) # (B,)
+        # store the calibrated predictions and masks
+        data_dict['cluster_ref'] = data_dict["cluster_labels"]
+    if use_cat_rand:
+        cluster_preds = torch.zeros(cluster_labels.shape).cuda()
+        for i in range(cluster_preds.shape[0]):
+            num_bbox = data_dict["num_bbox"][i]
+            sem_cls_label = data_dict["sem_cls_label"][i]
+            # sem_cls_label = torch.argmax(end_points["sem_cls_scores"], 2)[i]
+            sem_cls_label[num_bbox:] -= 1
+            candidate_masks = torch.gather(sem_cls_label == data_dict["object_cat"][i], 0, data_dict["object_assignment"][i])
+            candidates = torch.arange(cluster_labels.shape[1])[candidate_masks]
+            try:
+                chosen_idx = torch.randperm(candidates.shape[0])[0]
+                chosen_candidate = candidates[chosen_idx]
+                cluster_preds[i, chosen_candidate] = 1
+            except IndexError:
+                cluster_preds[i, candidates] = 1
+
+        pred_ref = torch.argmax(cluster_preds, 1) # (B,)
+        # store the calibrated predictions and masks
+        data_dict['cluster_ref'] = cluster_preds
+    else:
+        pred_ref = torch.argmax(data_dict['cluster_ref'] * pred_masks, 1) # (B,)
+        # store the calibrated predictions and masks
+        data_dict['cluster_ref'] = data_dict['cluster_ref'] * pred_masks
 
     data_dict["pred_mask"] = pred_masks
     data_dict["label_mask"] = label_masks
